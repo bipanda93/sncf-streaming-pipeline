@@ -65,14 +65,46 @@ class SNCFClient:
 
     def get_disruptions(self) -> list[dict]:
         """
-        Récupère les perturbations actives sur tout le réseau SNCF.
-        Ne nécessite pas d'identifiant de gare (contrairement aux départs)
-        -> c'est le point d'entrée le plus simple pour démarrer le pipeline.
+        Récupère les perturbations du réseau SNCF, filtrées sur la journée
+        en cours (UTC).
+
+        Pourquoi ce filtre : sans lui, l'endpoint retourne TOUT l'historique
+        connu (2591 perturbations constatées lors de nos tests, mélangeant
+        passé et présent), paginé 25 par page. Se limiter à aujourd'hui et
+        demander count=1000 (le maximum autorisé par Navitia) permet de tout
+        récupérer en un seul appel -- l'historique au-delà d'aujourd'hui est
+        du ressort de la source batch régularité (src/historical/), pas de
+        ce flux temps réel.
+
+        Garde-fou : si total_result dépasse ce qu'on a reçu (plus de 1000
+        perturbations en une seule journée -- grève nationale par exemple),
+        un warning est loggé plutôt que de perdre des données en silence.
         """
         if self.mock_mode:
             return self._mock_disruptions()
 
-        data = self._get("/disruptions")
+        today = datetime.now(timezone.utc).strftime("%Y%m%d")
+        data = self._get(
+            "/disruptions",
+            params={
+                "count": 1000,
+                "since": f"{today}000000",
+                "until": f"{today}235959",
+            },
+        )
+
+        pagination = data.get("pagination", {})
+        total = pagination.get("total_result", 0)
+        received = pagination.get("items_on_page", 0)
+        if total > received:
+            logger.warning(
+                "Pagination incomplète : %d perturbation(s) reçue(s) sur %d "
+                "au total -- envisager une boucle de pagination si ce cas "
+                "devient fréquent.",
+                received,
+                total,
+            )
+
         return data.get("disruptions", [])
 
     def search_places(self, query: str) -> list[dict]:
