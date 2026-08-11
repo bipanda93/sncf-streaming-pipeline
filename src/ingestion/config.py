@@ -13,9 +13,6 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # --- SNCF API -----------------------------------------------------------
-# Si aucun token n'est fourni, le client bascule automatiquement en mode
-# mock (données synthétiques) — ça permet de développer et tester tout
-# le pipeline avant même d'avoir reçu l'accès à l'API SNCF.
 SNCF_API_TOKEN = os.getenv("SNCF_API_TOKEN") or None
 
 # --- Kafka / Event Hubs --------------------------------------------------
@@ -28,12 +25,12 @@ KAFKA_SASL_PASSWORD = os.getenv("KAFKA_SASL_PASSWORD", "")
 TOPIC_RAW = os.getenv("KAFKA_TOPIC_RAW", "sncf-raw")
 POLL_INTERVAL_SECONDS = int(os.getenv("POLL_INTERVAL_SECONDS", "300"))
 
-# --- Delta Lake / Streaming -----------------------------------------------
-# En local : chemin disque classique. Sur Databricks : remplacer par un
-# chemin ADLS Gen2 (abfss://...) -- même variable, même code, seule la
-# valeur change au moment du déploiement Azure.
+# --- Delta Lake / Streaming (temps réel) ----------------------------------
 DELTA_BRONZE_PATH = os.getenv("DELTA_BRONZE_PATH", "/tmp/delta/bronze/sncf_raw")
 CHECKPOINT_BRONZE_PATH = os.getenv("CHECKPOINT_BRONZE_PATH", "/tmp/delta/checkpoints/bronze_sncf_raw")
+
+# --- Delta Lake / Historique (batch) --------------------------------------
+DELTA_BRONZE_HISTORICAL_PATH = os.getenv("DELTA_BRONZE_HISTORICAL_PATH", "/tmp/delta/bronze/historical")
 
 
 def build_kafka_config() -> dict:
@@ -42,8 +39,7 @@ def build_kafka_config() -> dict:
 
     - Local (Docker Compose)  : security.protocol=PLAINTEXT, pas d'auth.
     - Azure Event Hubs        : security.protocol=SASL_SSL, username fixe
-      "$ConnectionString" et password = la connection string Event Hubs
-      (spécificité Azure — le "username" n'est pas un vrai nom d'utilisateur).
+      "$ConnectionString" et password = la connection string Event Hubs.
     """
     cfg = {
         "bootstrap.servers": KAFKA_BOOTSTRAP_SERVERS,
