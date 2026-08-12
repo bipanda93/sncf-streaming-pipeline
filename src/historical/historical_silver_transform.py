@@ -55,7 +55,7 @@ NUMERIC_COLUMNS = {
         "retard_moyen_depart", "retard_moyen_tous_trains_depart", "nb_train_retard_arrivee",
         "retard_moyen_arrivee", "retard_moyen_tous_trains_arrivee", "nb_train_retard_sup_15",
         "retard_moyen_trains_retard_sup15", "nb_train_retard_sup_30", "nb_train_retard_sup_60",
-        "prct_cause_externe", "prct_cause_infra", "prct_cause_gestion_traffic",
+        "prct_cause_externe", "prct_cause_infra", "prct_cause_gestion_trafic",
         "prct_cause_materiel_roulant", "prct_cause_gestion_gare", "prct_cause_prise_en_charge_voyageurs",
     ],
 }
@@ -71,12 +71,6 @@ def build_spark_session() -> SparkSession:
 
 
 def _invalid_flag(df, numeric_columns):
-    """
-    True pour une ligne où au moins une colonne numérique contient une
-    valeur non vide qui échoue au cast en double (donnée corrompue,
-    différente d'un champ simplement vide -- une valeur vide reste
-    considérée comme une donnée manquante normale, pas une erreur).
-    """
     conditions = [
         (trim(col(c)).isNotNull()) & (trim(col(c)) != "") & (col(c).cast(DoubleType()).isNull())
         for c in numeric_columns
@@ -108,13 +102,6 @@ def run_historical_silver_transform(dataset_key: str) -> None:
             select_exprs.append(to_date(concat(col("date"), lit("-01")), "yyyy-MM-dd").alias("period_date"))
             select_exprs.append(col("date").alias("period_label"))
         elif c in numeric_columns:
-            # try_cast (pas cast) : renvoie NULL pour une valeur vide au
-            # lieu de lever une erreur -- Spark 4.x est en mode ANSI par
-            # défaut, où un cast() classique sur '' plante au lieu de
-            # renvoyer null comme dans les anciennes versions. Les vraies
-            # valeurs corrompues (non vides mais non numériques) ont déjà
-            # été isolées dans reject_df juste au-dessus -- try_cast ici
-            # ne traite donc plus que le cas légitime des champs vides.
             select_exprs.append(expr(f"try_cast(`{c}` AS DOUBLE)").alias(c))
         else:
             select_exprs.append(col(c))
