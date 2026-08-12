@@ -56,6 +56,12 @@ DELTA_SILVER_PATH = os.getenv("DELTA_SILVER_PATH", "/tmp/delta/silver/sncf_disru
 DELTA_SILVER_REJECT_PATH = os.getenv("DELTA_SILVER_REJECT_PATH", "/tmp/delta/silver/sncf_disruptions_reject")
 
 #============================================================================
+# --- Delta Lake / Silver historique ---------------------------------------
+#============================================================================
+DELTA_SILVER_HISTORICAL_PATH = os.getenv("DELTA_SILVER_HISTORICAL_PATH", "/tmp/delta/silver/historical")
+DELTA_SILVER_HISTORICAL_REJECT_PATH = os.getenv("DELTA_SILVER_HISTORICAL_REJECT_PATH", "/tmp/delta/silver/historical_reject")
+
+#============================================================================
 # --- KAFKA ---------------------------------------------------
 #============================================================================
 def build_kafka_config() -> dict:
