@@ -52,3 +52,24 @@
 - [ ] `historical_loader.py` — chargement du CSV vers Delta Bronze historique
 - [ ] Couche Silver (dédoublonnage temps réel + typage)
 - [ ] Couche Gold (KPIs, jointure avec l'historique)
+
+---
+
+## SILVER TEMPS RÉEL — DÉCISIONS ET VALIDATION
+
+| # | Décision / Test | Détail |
+|---|---|---|
+| 22 | Extraction JSON : `from_json` avec schéma explicite (plutôt que `get_json_object` champ par champ) | Plus robuste, une seule passe de parsing, schéma Spark structuré reflétant la structure réelle observée dans les données SNCF (severity, messages, impacted_objects imbriqués) |
+| 23 | Statuts conservés : `active`, `past` ET `future` (aucun filtre en Silver) | La profondeur historique est déjà couverte par la source régularité ; laisser Gold/Power BI décider du filtrage selon l'usage |
+| 24 | Validation a posteriori de la décision #23 | Découverte d'un 3e statut (`future`, perturbations planifiées) jamais anticipé — répartition réelle : 74 future / 415 past / 130 active sur 619 lignes. Filtrer sur `active` seul en Silver aurait fait perdre silencieusement 79% des données |
+| 25 | Dédoublonnage validé | 629 lignes Bronze -> 619 perturbations distinctes, 0 doublon restant confirmé (comptage `disruption_id` distincts = lignes totales) |
+
+---
+
+## SILVER HISTORIQUE — DÉCISIONS ET VALIDATION
+
+| # | Décision / Test | Détail |
+|---|---|---|
+| 26 | Vérification préalable des schémas des 5 jeux, avant tout code | Confirme que les 5 jeux N'ONT PAS le même schéma (ex. `tgv_globale` = 3 colonnes sans notion de région ; `tgv_liaisons` = 26 colonnes avec détail des causes en %). Colonnes numériques définies explicitement par jeu (`NUMERIC_COLUMNS`), pas de détection automatique -- trop risqué vu l'hétérogénéité réelle |
+| 27 | Outil : Spark (pas dbt) pour le Silver historique | Voir section "DÉCISION — Outil de transformation Silver pour la source historique" ci-dessus pour le raisonnement complet (risque de propagation d'erreur écarté : l'isolation vient de la séparation des jobs, pas du choix d'outil) |
+| 28 | Validation complète sur les 5 jeux | TER 2366→2366 · Intercités 5949→5949 · TGV globale 138→138 · TGV axes 817→817 · TGV liaisons 12544→12544 — **21 814 lignes au total, 0 rejet** |
