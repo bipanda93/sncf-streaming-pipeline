@@ -70,6 +70,7 @@ DELTA_GOLD_REALTIME_ALERTS_PATH = os.getenv("DELTA_GOLD_REALTIME_ALERTS_PATH", "
 # --- Delta Lake / Gold historique ------------------------------------------
 #=============================================================================
 DELTA_GOLD_PUNCTUALITY_TRENDS_PATH = os.getenv("DELTA_GOLD_PUNCTUALITY_TRENDS_PATH", "/tmp/delta/gold/punctuality_trends")
+DELTA_GOLD_DISRUPTION_CONTEXT_PATH = os.getenv("DELTA_GOLD_DISRUPTION_CONTEXT_PATH", "/tmp/delta/gold/disruption_context")
 
 #============================================================================
 # --- KAFKA ---------------------------------------------------
