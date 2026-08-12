@@ -73,3 +73,20 @@
 | 26 | Vérification préalable des schémas des 5 jeux, avant tout code | Confirme que les 5 jeux N'ONT PAS le même schéma (ex. `tgv_globale` = 3 colonnes sans notion de région ; `tgv_liaisons` = 26 colonnes avec détail des causes en %). Colonnes numériques définies explicitement par jeu (`NUMERIC_COLUMNS`), pas de détection automatique -- trop risqué vu l'hétérogénéité réelle |
 | 27 | Outil : Spark (pas dbt) pour le Silver historique | Voir section "DÉCISION — Outil de transformation Silver pour la source historique" ci-dessus pour le raisonnement complet (risque de propagation d'erreur écarté : l'isolation vient de la séparation des jobs, pas du choix d'outil) |
 | 28 | Validation complète sur les 5 jeux | TER 2366→2366 · Intercités 5949→5949 · TGV globale 138→138 · TGV axes 817→817 · TGV liaisons 12544→12544 — **21 814 lignes au total, 0 rejet** |
+
+---
+
+## GOLD — JOINTURE GÉOGRAPHIQUE COMPLÈTE (toutes gares + consolidation régionale)
+
+**Évolution demandée** : geocoder TOUTES les gares affectées par une perturbation (pas seulement la première) -- permet de détecter qu'une perturbation touche plusieurs régions. Résultat : 51/130 perturbations touchent 2 régions ou plus (jusqu'à 4), une réalité complètement invisible avec l'approche "première gare seulement".
+
+**Découverte majeure lors de la validation** : le jeu régularité TER mélange des noms de région d'AVANT et d'APRÈS la réforme territoriale du 01/01/2016 (l'historique remonte à 2013), plus 3 noms de réseaux commerciaux locaux sans statut de région (Etoile Amiens, Loire Océan, Sud Azur). 31 valeurs distinctes trouvées pour ce qui devrait être 13 régions actuelles.
+
+**Décision** : construction d'un mapping `SNCF_TO_CURRENT_REGION` consolidant :
+- Les anciennes régions pré-2016 vers leur région fusionnée actuelle (mapping basé sur la réforme officielle : ex. Alsace + Champagne-Ardenne + Lorraine -> Grand Est)
+- Les variantes orthographiques des régions actuelles (SNCF n'utilise aucune convention de ponctuation cohérente : `Pays-de-la-Loire` mais `Provence Alpes Côte d'Azur`)
+- Exclusion volontaire des 3 noms commerciaux (Etoile Amiens, Loire Océan, Sud Azur) -- leur rattacher une région précise aurait été une supposition géographique, pas une correspondance officielle vérifiable
+
+**Résultat final** : 116/130 alertes avec au moins une région identifiée (89,2%), 115/130 avec un taux historique résolu. Le seul écart restant (Île-de-France) est un comportement correct, pas un bug : l'Île-de-France est opérée sous la marque Transilien, pas TER, donc absente par nature du jeu régularité TER.
+
+**Enseignement méthodologique** : une hypothèse de départ raisonnable ("les régions SNCF sont stables depuis 2016") s'est révélée incomplète face aux vraies données -- l'historique remonte avant la réforme territoriale, invalidant l'hypothèse de stabilité. Découvert uniquement parce qu'un résultat "presque correct" (une région identifiée mais un taux NULL) a été creusé plutôt qu'accepté tel quel.
