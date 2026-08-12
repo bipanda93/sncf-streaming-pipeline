@@ -46,12 +46,24 @@
 
 ---
 
-## PROCHAINES ÉTAPES
+## PROCHAINES ÉTAPES (mise à jour 12/08/2026, fin de session Gold)
 
-- [ ] Confirmer le test #15 (téléchargement réel complet via le client Python)
-- [ ] `historical_loader.py` — chargement du CSV vers Delta Bronze historique
-- [ ] Couche Silver (dédoublonnage temps réel + typage)
-- [ ] Couche Gold (KPIs, jointure avec l'historique)
+### Terminé
+- [x] Ingestion temps réel (SNCF API -> Kafka) + Bronze temps réel
+- [x] Ingestion historique (5 jeux régularité) + Bronze historique
+- [x] Silver temps réel (dédoublonnage) + Silver historique (typage, 5 jeux)
+- [x] Gold realtime_alerts (alertes actives, niveaux de sévérité)
+- [x] Gold punctuality_trends (tendances historiques unifiées, 5 sources)
+- [x] Gold disruption_context (jointure temporelle + géographique)
+
+### À faire
+- [ ] Enrichissement LLM (`src/enrichment/`) — résumés Claude API des perturbations, publication sur `sncf-llm`
+- [ ] Orchestration Airflow (`dags/`) — 3 DAGs encore en squelette
+- [ ] Power BI — connexion DirectQuery vers les 3 tables Gold
+- [ ] Monitoring (`monitoring/`) — Prometheus/Grafana ou Azure Monitor
+- [ ] Infrastructure Terraform (`infra/terraform/`) — tous les .tf encore vides
+- [ ] Migration Kafka local -> Event Hubs (déjà prévue dans le code, jamais testée en réel)
+- [ ] `deploy.yml` (CI/CD déploiement) — seul `ci.yml` (lint/test) est fonctionnel aujourd'hui
 
 ---
 
