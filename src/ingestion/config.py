@@ -61,6 +61,11 @@ DELTA_SILVER_REJECT_PATH = os.getenv("DELTA_SILVER_REJECT_PATH", "/tmp/delta/sil
 DELTA_SILVER_HISTORICAL_PATH = os.getenv("DELTA_SILVER_HISTORICAL_PATH", "/tmp/delta/silver/historical")
 DELTA_SILVER_HISTORICAL_REJECT_PATH = os.getenv("DELTA_SILVER_HISTORICAL_REJECT_PATH", "/tmp/delta/silver/historical_reject")
 
+#=============================================================================
+# --- Delta Lake / Gold ------------------------------------------------------
+#=============================================================================
+DELTA_GOLD_REALTIME_ALERTS_PATH = os.getenv("DELTA_GOLD_REALTIME_ALERTS_PATH", "/tmp/delta/gold/realtime_alerts")
+
 #============================================================================
 # --- KAFKA ---------------------------------------------------
 #============================================================================
