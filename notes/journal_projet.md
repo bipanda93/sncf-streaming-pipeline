@@ -102,3 +102,38 @@
 **Résultat final** : 116/130 alertes avec au moins une région identifiée (89,2%), 115/130 avec un taux historique résolu. Le seul écart restant (Île-de-France) est un comportement correct, pas un bug : l'Île-de-France est opérée sous la marque Transilien, pas TER, donc absente par nature du jeu régularité TER.
 
 **Enseignement méthodologique** : une hypothèse de départ raisonnable ("les régions SNCF sont stables depuis 2016") s'est révélée incomplète face aux vraies données -- l'historique remonte avant la réforme territoriale, invalidant l'hypothèse de stabilité. Découvert uniquement parce qu'un résultat "presque correct" (une région identifiée mais un taux NULL) a été creusé plutôt qu'accepté tel quel.
+
+---
+
+## DÉCISION — Fréquence et rôle de l'enrichissement LLM
+
+**Question de départ** : estimation du coût de l'enrichissement LLM (Claude API)
+sur les perturbations temps réel.
+
+**Estimation réalisée** (modèle Haiku 4.5, 1$/5$ par million de tokens
+entrée/sortie -- tarif vérifié en direct) : sur la base de 599 perturbations/jour
+(volume réel mesuré via l'API SNCF), ~400 tokens entrée + ~150 tokens sortie par
+perturbation -> environ 0,70$/jour, ~20$/mois en fonctionnement quotidien continu.
+Coût jugé faible pour un projet académique -- ce n'était donc pas la vraie
+contrainte derrière la demande de réduire la fréquence.
+
+**Décision retenue** : l'enrichissement LLM devient un job MENSUEL, orchestré par
+un DAG Airflow dédié, séparé des DAGs d'ingestion (qui restent sur leur cadence
+actuelle, quasi continue, pour préserver le vrai suivi temps réel du pipeline).
+Airflow permet nativement des fréquences différentes entre DAGs -- aucune
+contrainte technique à ce choix.
+
+**Tension identifiée et assumée explicitement** : à cette fréquence,
+l'enrichissement devient RÉTROSPECTIF, pas un outil d'alerte en direct -- une
+perturbation SNCF dure typiquement quelques heures, largement résolue avant le
+prochain cycle mensuel. Point important : ce n'est PAS un problème pour les
+alertes temps réel elles-mêmes, puisque `gold_realtime_alerts` calcule déjà le
+niveau de sévérité et la cause sans dépendre du LLM -- l'enrichissement mensuel
+s'ajoute comme une couche de reporting complémentaire ("voici ce qui s'est passé
+ce mois-ci et pourquoi"), pas comme un prérequis à l'alerting opérationnel.
+
+**Question laissée ouverte** (à trancher à la reprise) : le rapport mensuel
+prend-il la forme d'un résumé par perturbation (une phrase générée par incident
+du mois), ou d'un seul récit consolidé (une synthèse globale du mois en un seul
+texte) ? Impact direct sur l'architecture de `claude_client.py` et
+`delay_analyzer.py` (nombreux petits appels API vs un seul appel plus riche).
