@@ -137,3 +137,100 @@ prend-il la forme d'un résumé par perturbation (une phrase générée par inci
 du mois), ou d'un seul récit consolidé (une synthèse globale du mois en un seul
 texte) ? Impact direct sur l'architecture de `claude_client.py` et
 `delay_analyzer.py` (nombreux petits appels API vs un seul appel plus riche).
+
+---
+
+## DÉCISION — Ajout d'une "profondeur IA" : périmètre, algorithme et orchestration
+
+**Contexte** : réflexion sur l'ajout d'un volet IA plus poussé au projet, au-delà de
+l'enrichissement LLM déjà en place, pour renforcer le mémoire.
+
+### Chantiers envisagés et écartés
+
+**RAG (Retrieval-Augmented Generation)** sur les résumés LLM mensuels — écarté pour
+l'instant, pas par manque de valeur mais par manque de nécessité actuelle : 545
+résumés/mois représentent un corpus trop petit (~6 500 phrases/an) pour justifier une
+architecture de retrieval — un simple filtre SQL + prompt classique ferait le même
+travail, plus simplement. Noté comme chantier bonus si le temps le permet après les
+priorités du calendrier (Airflow, Power BI, Terraform). Architecture retenue si repris
+un jour : Databricks AI Search (anciennement Vector Search, renommé récemment) plutôt
+qu'un vector store externe -- reste dans l'écosystème Databricks déjà en place, et se
+gouverne nativement via Unity Catalog.
+
+**Terraform / Power BI** — écartés : aucun angle IA naturel pour le premier (pur IaC) ;
+Power BI a son propre Copilot intégré, peu démonstratif d'une compétence propre.
+
+### Chantier retenu : détection automatique d'anomalies (gouvernance des données)
+
+Motivé par l'expérience réelle du projet : 16 incidents rencontrés cette session, la
+plupart silencieux (aucune exception levée, juste une donnée incomplète ou incorrecte
+-- ex. pagination à 25 lignes sur 2 591 réelles, NULL caché sur les alertes les plus
+critiques). Un détecteur d'anomalies en amont de Gold aurait pu signaler plusieurs de
+ces écarts automatiquement, avant qu'ils ne se propagent.
+
+**Conception à deux niveaux** :
+- Niveau 1 (seuils statistiques) : nouvelle table `gold_pipeline_metrics` (une ligne
+  par run -- row_count, taux de nullité, durée d'exécution...), comparée à la
+  distribution historique du même job (Statistical Process Control, technique utilisée
+  par les outils pro du domaine comme Great Expectations, Monte Carlo)
+- Niveau 2 (ML) : Isolation Forest, capable de détecter une combinaison anormale de
+  métriques même quand aucune ne dépasse individuellement un seuil
+
+### Comparaison d'algorithmes pour le Niveau 2
+
+| Algorithme | Peu de données | Interprétabilité | Adoption prod | Implémentation | Dimensionnalité | Score /100 |
+|---|---|---|---|---|---|---|
+| **Isolation Forest** | 4 | 4 | 5 | 5 | 4 | **88** |
+| Distance de Mahalanobis | 3 | 5 | 3 | 5 | 2 | 72 |
+| One-Class SVM | 3 | 2 | 3 | 3 | 3 | 56 |
+| Local Outlier Factor | 2 | 3 | 2 | 4 | 2 | 52 |
+
+**Isolation Forest retenu** : ne suppose aucune distribution particulière (contrairement
+à Mahalanobis, qui suppose une forme ~gaussienne), robuste avec un historique encore
+modeste, standard de facto pour ce cas d'usage en production.
+
+### Contrainte critique découverte : volume de données d'entraînement
+
+Un modèle comme Isolation Forest nécessite ~50-100 exécutions historiques minimum pour
+produire des scores statistiquement fiables. Or les deux sources du projet n'accumulent
+pas d'historique au même rythme :
+
+| Source | Fréquence | Temps pour ~50 échantillons |
+|---|---|---|
+| Ingestion temps réel | Continue | Quelques jours à quelques semaines selon la fréquence du DAG |
+| Historique + LLM mensuel | Une fois par mois | ~4 ans -- hors de portée du calendrier du mémoire |
+
+**Conséquence assumée** : présenter un Isolation Forest entraîné sur le flux mensuel
+aurait été du *ML-washing* -- une façade IA sans fondement statistique réel, risquant
+d'être détectée par un jury un peu pointu.
+
+### Décision finale
+
+- **Flux temps réel** → Isolation Forest, entraîné progressivement une fois qu'Airflow
+  tourne depuis plusieurs semaines. Implication directe sur la conception du DAG
+  d'ingestion : choisir une fréquence laissant une vraie marge d'ici la soutenance de
+  décembre (ex. toutes les 4h -> ~540 runs sur 3 mois, confortable ; quotidien -> ~90
+  runs, marge faible).
+- **Historique/mensuel** → seuils statistiques (Niveau 1) uniquement, explicitement
+  non-ML faute de volume suffisant dans la durée du projet -- limite assumée et
+  documentée plutôt que dissimulée, dans le prolongement de la posture déjà adoptée sur
+  les biais de confirmation du benchmarking (Partie 1 du mémoire).
+- Présentation recommandée en soutenance : "un modèle entraîné sur les données
+  réellement disponibles à ce stade du projet, avec ses limites de volume assumées" --
+  pas un système mature en production.
+
+### Clarification d'orchestration
+
+Confusion initiale entre trois couches à ne pas mélanger :
+- **CI/CD (GitHub Actions, pas Jenkins ici)** : build/test/déploiement de code, ne
+  concerne pas l'exécution du modèle
+- **AKS (Kubernetes)** : infrastructure de calcul, exécute simplement le code -- pas un
+  orchestrateur de pipeline
+- **Airflow** : le bon outil pour ce besoin -- décide quand le job de détection
+  d'anomalies tourne et dans quel ordre (après le DAG d'ingestion temps réel)
+
+Architecture retenue : DAG "ingestion_temps_reel" -> déclenche DAG
+"detection_anomalies" (entraînement/mise à jour du modèle, score du run le plus récent,
+alerte via claude_client.py si anomalie détectée). MLflow (nativement intégré à
+Databricks, déjà mentionné dans l'architecture d'origine) comme outil naturel de suivi
+des versions successives du modèle, sans introduire de nouvelle brique technique.
