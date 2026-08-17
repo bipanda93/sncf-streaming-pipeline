@@ -29,3 +29,25 @@ services:
       - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=kafka:9092
     depends_on:
       - kafka
+
+  airflow:
+    build:
+      context: .
+      dockerfile: Dockerfile.airflow
+    container_name: sncf-airflow
+    depends_on:
+      - kafka
+    environment:
+      # Adresse interne au réseau Docker -- pas localhost:9094 (ça, c'est
+      # uniquement valable depuis ta machine, pas depuis un conteneur).
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      PYTHONPATH: /opt/airflow/project
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./:/opt/airflow/project
+      - /tmp/delta:/tmp/delta
+    working_dir: /opt/airflow/project
+    ports:
+      - "8081:8080"   # 8080 déjà pris par kafka-ui
+    command: standalone
