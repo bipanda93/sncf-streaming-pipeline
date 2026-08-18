@@ -234,3 +234,40 @@ Architecture retenue : DAG "ingestion_temps_reel" -> déclenche DAG
 alerte via claude_client.py si anomalie détectée). MLflow (nativement intégré à
 Databricks, déjà mentionné dans l'architecture d'origine) comme outil naturel de suivi
 des versions successives du modèle, sans introduire de nouvelle brique technique.
+
+---
+
+## AIRFLOW — ORCHESTRATION COMPLÈTE
+
+**Installation** : tentative initiale via `pip install apache-airflow` directement sur la machine locale -- a déclenché une cascade de compilations depuis les sources (Rust, puis OpenSSL, cmake, jusqu'à LLVM/Clang complets) à cause d'un compilateur Rust absent et d'une toolchain Xcode désynchronisée. Interrompu avant que la compilation LLVM (potentiellement plusieurs heures) ne se termine. Pivot vers Docker -- même stratégie que pour Kafka (Bitnami) plus tôt dans le projet : isoler l'installation plutôt que de déboguer l'environnement local indéfiniment. Plus proche de la vraie pratique en entreprise (Airflow tourne presque toujours en conteneur en production).
+
+**Version** : Airflow 3.3.1 -- changement d'architecture majeur par rapport à la v2 (dernière connue) : `schedule_interval` -> `schedule`, `PythonOperator`/`BashOperator` déplacés dans le package séparé `apache-airflow-providers-standard`, `SequentialExecutor` supprimé (`LocalExecutor` fonctionne désormais avec SQLite pour du dev local), webserver renommé `api-server`.
+
+**Architecture retenue** : un seul service Docker (`airflow standalone`, scheduler + api-server + base SQLite en un seul processus) plutôt qu'une configuration multi-services (Postgres + scheduler + webserver + triggerer séparés) -- suffisant pour du développement local, évite la complexité d'une configuration de production non nécessaire à ce stade.
+
+**Réseau** : les tâches Airflow tournant dans un conteneur ne peuvent pas joindre Kafka via `localhost:9094` (valable uniquement depuis la machine hôte) -- nécessite `kafka:9092` (adresse interne au réseau Docker), configuré via variable d'environnement du service `airflow` dans `docker-compose.yml`.
+
+**Persistance des données** : `/tmp/delta` monté en volume identique entre l'hôte et le conteneur -- les jobs Spark exécutés par Airflow écrivent dans le même Delta Lake que les runs manuels précédents (vérifié : 629 + 879 = 1508 lignes Bronze après le premier run orchestré).
+
+### Découverte architecturale importante (signalée par l'utilisateur, pas anticipée)
+
+Le premier DAG écrit (`silver_gold_temps_reel`) ne couvrait que Silver -> Gold, laissant l'ingestion Bronze temps réel (`main.py`, `bronze_ingestion.py`) en dehors de toute orchestration -- ces scripts n'auraient continué de tourner que si lancés manuellement, contredisant l'objectif de pipeline autonome. Corrigé par l'ajout d'un DAG dédié (`ingestion_bronze_temps_reel`), réutilisant le mode `--once` déjà présent dans les deux scripts depuis le début du projet mais jamais pleinement exploité.
+
+### Les 4 DAGs planifiés, testés en conditions réelles
+
+| DAG | Fréquence | Résultat du test réel |
+|---|---|---|
+| `ingestion_bronze_temps_reel` | Toutes les heures | 879 perturbations publiées, Bronze 629 -> 1508 |
+| `silver_gold_temps_reel` | Toutes les 4h | Silver 1508 -> 1498 distinctes ; 250 alertes actives ; 226/250 régions identifiées |
+| `historique_mensuel` | 1er du mois, 3h | 11 tâches (5 jeux x load+silver + 1 gold), 21814 lignes -- identique au run manuel (CSV inchangé depuis) |
+| `enrichissement_llm_mensuel` | 1er du mois, 4h | Testé sur juillet 2026 (mois vide) -- gère proprement l'absence de données, `state=success` |
+
+### 5e DAG utilitaire -- pipeline_complet_manuel
+
+Besoin identifié : pouvoir déclencher les 4 DAGs planifiés d'un coup, à la demande (démonstration soutenance, test de bout en bout), sans dupliquer ni fusionner leurs plannings automatiques respectifs -- chaque fréquence reste justifiée par une vraie contrainte (volume Isolation Forest, coût LLM, cadence de publication SNCF), les fusionner aurait réintroduit les problèmes qu'on avait précisément écartés (ex. LLM re-déclenché à chaque run horaire).
+
+Solution : DAG séparé (`pipeline_complet_manuel`), `schedule=None` -- ne se déclenche jamais automatiquement, uniquement via `airflow dags trigger`. Utilise `TriggerDagRunOperator` (déjà anticipé dans le document d'architecture d'origine du projet). Point de vigilance appliqué de façon préventive : `deferrable=False` forcé explicitement sur chaque tâche -- un bug documenté d'Airflow 3.x fait que `wait_for_completion=True` combiné à `deferrable=True` peut laisser une tâche bloquée indéfiniment en état "deferred", sans jamais échouer ni réussir. Découvert par recherche avant implémentation, jamais rencontré en pratique.
+
+### Restant
+
+`gouvernance_rgpd` (6e DAG prévu, rétention et purge des données personnelles) -- non commencé, nécessite une réflexion sur la politique de rétention avant d'être codé.
