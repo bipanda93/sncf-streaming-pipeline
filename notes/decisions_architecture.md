@@ -211,3 +211,26 @@ tourne-t-il en production" vs "comment tout relancer à la main quand j'en ai
 besoin"). Point de vigilance appliqué : `deferrable=False` forcé
 explicitement sur chaque tâche pour éviter un bug documenté d'Airflow 3.x
 (blocage indéfini en état "deferred" avec `wait_for_completion=True`).
+
+---
+
+## Sécurité & gestion des secrets
+
+### Vérification systématique de git status avant tout commit touchant des identifiants
+**Contexte** : un `.gitignore` créé avec un chemin relatif incorrect (motif
+doublement imbriqué, sans effet réel) a laissé passer un secret Azure
+(`ARM_CLIENT_SECRET`) dans un commit, sans qu'aucune erreur ne le signale au
+moment de l'écriture du fichier.
+**Décision** : avant tout commit dans un dossier contenant des identifiants
+(`.env`, `.env.terraform`...), vérifier explicitement le contenu de `git
+status`/`git add` -- jamais supposer qu'un `.gitignore` fonctionne du simple
+fait qu'il existe.
+**Justification** : un `.gitignore` mal placé échoue silencieusement --
+aucune erreur, aucun avertissement, juste une protection qui ne protège rien.
+Seule une vérification active de la liste réelle des fichiers avant commit
+aurait détecté le problème plus tôt (elle l'a fait, mais après le premier
+commit fautif, pas avant).
+**Remédiation appliquée** : révocation immédiate du secret exposé (`az ad sp
+credential reset`) en priorité absolue, indépendamment du nettoyage de
+l'historique Git -- un secret qui a fuité se révoque, il ne se cache pas
+mieux.

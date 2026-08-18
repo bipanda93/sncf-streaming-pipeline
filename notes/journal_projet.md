@@ -271,3 +271,10 @@ Solution : DAG séparé (`pipeline_complet_manuel`), `schedule=None` -- ne se d�
 ### Restant
 
 `gouvernance_rgpd` (6e DAG prévu, rétention et purge des données personnelles) -- non commencé, nécessite une réflexion sur la politique de rétention avant d'être codé.
+
+**Mise à jour** : un secret réel (`ARM_CLIENT_SECRET` du Service Principal) a
+été committé par erreur peu après la rédaction de la section ci-dessus, à
+cause du même type de bug de chemin relatif que celui déjà rencontré avec `az`
+dans ce même module. Révoqué immédiatement, commit fautif annulé (jamais
+poussé vers un remote), `.gitignore` corrigé. Détail complet dans
+notes/incidents_2026-08-18.md, incident n°6.
