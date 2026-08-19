@@ -1,0 +1,119 @@
+# CI/CD Terraform -- plan automatique (sûr, gratuit), apply/destroy
+# manuels uniquement (coût réel, jamais sans supervision humaine directe).
+#
+# Décision retenue après la session du 19/08 (6 erreurs réelles corrigées
+# lors d'un apply manuel, coûts Azure réels engagés) : automatiser le plan
+# pour détecter les erreurs de syntaxe tôt, mais ne JAMAIS automatiser
+# apply/destroy sur un simple push -- un push accidentel ne doit jamais
+# pouvoir créer ou détruire de l'infrastructure facturée sans action
+# humaine explicite.
+#
+# Secrets requis (à configurer dans GitHub -> Settings -> Secrets and
+# variables -> Actions, JAMAIS dans ce fichier) :
+#   ARM_CLIENT_ID, ARM_CLIENT_SECRET, ARM_TENANT_ID, ARM_SUBSCRIPTION_ID
+# -- mêmes identifiants que le Service Principal local, celui déjà tourné
+# une fois suite à l'incident du 18/08 (voir notes/incidents_2026-08-18.md).
+
+name: Terraform CI/CD
+
+on:
+  pull_request:
+    paths:
+      - 'infra/terraform/**'
+  push:
+    branches: [main]
+    paths:
+      - 'infra/terraform/**'
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Action à exécuter'
+        required: true
+        type: choice
+        options:
+          - apply
+          - destroy
+
+permissions:
+  contents: read
+  pull-requests: write
+
+env:
+  ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
+  ARM_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
+  ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
+  ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
+
+jobs:
+  # Automatique -- sur chaque push/PR touchant infra/terraform/.
+  # Gratuit et sans risque : ne fait que simuler, jamais de vrai apply.
+  terraform-plan:
+    if: github.event_name != 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: infra/terraform
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.*"
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Validate
+        run: terraform validate
+
+      - name: Terraform Plan
+        run: terraform plan -no-color
+        continue-on-error: false
+
+  # Manuel uniquement (workflow_dispatch) -- nécessite un déclenchement
+  # explicite depuis l'onglet Actions de GitHub, jamais automatique.
+  # Protégé en plus par une règle d'approbation sur l'environnement
+  # "production" (à configurer dans GitHub -> Settings -> Environments --
+  # ne peut pas être fait depuis ce fichier YAML seul).
+  terraform-apply:
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'apply'
+    runs-on: ubuntu-latest
+    environment: production
+    defaults:
+      run:
+        working-directory: infra/terraform
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.*"
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve
+
+  # Manuel uniquement -- symétrique à apply, pour appliquer facilement la
+  # discipline "apply -> vérifier -> destroy dans la même session" sans
+  # avoir à repasser par une machine locale.
+  terraform-destroy:
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'destroy'
+    runs-on: ubuntu-latest
+    environment: production
+    defaults:
+      run:
+        working-directory: infra/terraform
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.*"
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Destroy
+        run: terraform destroy -auto-approve
