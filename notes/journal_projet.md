@@ -278,3 +278,50 @@ cause du même type de bug de chemin relatif que celui déjà rencontré avec `a
 dans ce même module. Révoqué immédiatement, commit fautif annulé (jamais
 poussé vers un remote), `.gitignore` corrigé. Détail complet dans
 notes/incidents_2026-08-18.md, incident n°6.
+
+---
+
+## MONITORING — Prometheus/Grafana vs Azure Monitor, décision affinée
+
+**Point de départ** : le plan d'architecture d'origine mentionnait
+"Prometheus/Grafana ou Azure Monitor" pour le monitoring -- jamais tranché,
+jamais construit. Redécouvert tardivement dans le projet, après que
+l'infrastructure Azure native (AKS, Databricks, Event Hubs) ait déjà été
+largement engagée.
+
+**Première comparaison, sur le seul critère du coût** :
+- Azure Monitor : 5 Go d'ingestion gratuits/mois, puis 2,30$/Go (logs
+  Analytics) -- pour l'échelle de ce projet (un seul nœud AKS léger, peu de
+  ressources), le volume réel resterait probablement dans les 5 Go gratuits
+  ou proche.
+- Prometheus/Grafana auto-hébergé : logiciel gratuit, mais nécessiterait un
+  nœud/pool AKS supplémentaire pour tourner -- risque concret de rouvrir le
+  problème de quota vCPU rencontré lors du premier apply réel (3 familles de
+  VM refusées avant de trouver Standard_D2s_v6, voir
+  notes/incidents_2026-08-19.md).
+
+**Conclusion initiale** : Azure Monitor, pour éviter ce risque de quota.
+
+**Approfondissement demandé** : recherche spécifique sur "Prometheus hébergé
+sur Azure" -- révèle l'existence d'Azure Monitor managed service for
+Prometheus, une option intermédiaire non considérée initialement.
+
+**Ce que ce service change** : facturation basée sur l'ingestion/requête des
+données (comme Azure Monitor classique), PAS sur l'hébergement -- élimine
+entièrement le risque de quota AKS, puisqu'aucun nœud dédié n'est nécessaire
+pour faire tourner Prometheus lui-même. Support complet de PromQL, intégration
+native avec Azure Managed Grafana (service Grafana managé, pas
+auto-hébergé), rétention 18 mois sans coût de stockage additionnel.
+
+**Point de vigilance identifié pendant la recherche** : un chiffre de
+~4019$/mois trouvé dans une source de comparaison ne s'applique PAS à
+l'échelle de ce projet -- c'est un scénario de référence entreprise, utilisé
+pour comparer AWS/GCP/Azure entre eux à grande échelle, sans rapport avec un
+seul petit cluster AKS de démonstration.
+
+**DÉCISION FINALE** : Azure Monitor managed service for Prometheus + Azure
+Managed Grafana -- combine le coût maîtrisé d'Azure Monitor (facturation à
+l'usage, pas à l'infrastructure) avec une vraie compétence Prometheus/PromQL
+et Grafana à démontrer en entretien, sans jamais recréer le risque de quota
+déjà rencontré. Remplace la proposition initiale "Azure Monitor seul avec
+Grafana en simple visualisation".

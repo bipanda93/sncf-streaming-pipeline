@@ -272,3 +272,27 @@ le pattern GitOps classique (auto-apply sur merge) est adapté à des
 équipes avec une infrastructure stable et un budget de production réel,
 pas à un projet académique en développement actif sur un compte étudiant
 à crédit limité.
+
+---
+
+## Monitoring
+
+### Azure Monitor managed service for Prometheus + Azure Managed Grafana
+**Contexte** : le plan d'architecture d'origine laissait le choix ouvert
+entre Prometheus/Grafana auto-hébergé et Azure Monitor, jamais tranché ni
+construit -- redécouvert tardivement dans le projet.
+**Alternatives écartées** :
+- Prometheus/Grafana auto-hébergé sur AKS : nécessiterait un nœud/pool
+  supplémentaire, risquant de reproduire le problème de quota vCPU déjà
+  rencontré (3 familles de VM refusées avant `Standard_D2s_v6`, voir
+  notes/incidents_2026-08-19.md).
+- Azure Monitor classique seul (sans PromQL/Grafana) : solution de repli
+  initiale, moins riche pour démontrer une compétence Prometheus/Grafana en
+  entretien.
+**Décision** : Azure Monitor managed service for Prometheus (facturé à
+l'ingestion/requête, pas à l'hébergement) + Azure Managed Grafana (service
+managé, intégration native).
+**Justification** : élimine le risque de quota (aucun nœud dédié requis
+pour Prometheus lui-même) tout en conservant un vrai PromQL et un vrai
+Grafana -- combine la contrainte de coût du compte étudiant avec la valeur
+de démontrer ces deux outils, largement utilisés en entreprise.
