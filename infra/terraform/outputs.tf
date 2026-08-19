@@ -54,3 +54,11 @@ output "aks_cluster_name" {
 output "aks_node_resource_group" {
   value = azurerm_kubernetes_cluster.sncf.node_resource_group
 }
+
+output "grafana_endpoint" {
+  value = azurerm_dashboard_grafana.sncf.endpoint
+}
+
+output "monitor_workspace_id" {
+  value = azurerm_monitor_workspace.sncf.id
+}
