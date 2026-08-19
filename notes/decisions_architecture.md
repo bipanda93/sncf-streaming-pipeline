@@ -251,3 +251,24 @@ ADLS Gen2 (jamais via internet public) -- pattern attendu en architecture de
 production réelle, pas un raccourci de POC. Coût nul : un VNet n'est pas une
 ressource facturée en soi, contrairement à AKS ou Databricks -- aucun
 compromis budgétaire à faire sur ce choix précis.
+
+---
+
+## CI/CD Terraform
+
+### Plan automatique, apply/destroy strictement manuels
+**Contexte** : mise en place du pipeline CI/CD pour l'infrastructure
+Terraform, après une session ayant révélé des coûts réels et 6 erreurs
+corrigées lors d'un apply manuel (voir notes/incidents_2026-08-19.md).
+**Alternative écartée** : apply automatique sur merge vers main (pattern
+GitOps classique).
+**Décision** : `terraform plan` automatique sur chaque push/PR touchant
+`infra/terraform/` (gratuit, sans risque) ; `apply` et `destroy`
+déclenchés uniquement via `workflow_dispatch` (action manuelle explicite
+depuis GitHub), protégés par une règle d'approbation d'environnement.
+**Justification** : un push accidentel ne doit jamais pouvoir créer ou
+détruire de l'infrastructure facturée sans supervision humaine directe --
+le pattern GitOps classique (auto-apply sur merge) est adapté à des
+équipes avec une infrastructure stable et un budget de production réel,
+pas à un projet académique en développement actif sur un compte étudiant
+à crédit limité.
