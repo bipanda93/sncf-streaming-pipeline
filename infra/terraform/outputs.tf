@@ -42,3 +42,7 @@ output "eventhub_namespace_name" {
 output "eventhub_name" {
   value = azurerm_eventhub.sncf_raw.name
 }
+
+output "databricks_workspace_url" {
+  value = azurerm_databricks_workspace.sncf.workspace_url
+}
