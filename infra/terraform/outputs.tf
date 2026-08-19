@@ -46,3 +46,11 @@ output "eventhub_name" {
 output "databricks_workspace_url" {
   value = azurerm_databricks_workspace.sncf.workspace_url
 }
+
+output "aks_cluster_name" {
+  value = azurerm_kubernetes_cluster.sncf.name
+}
+
+output "aks_node_resource_group" {
+  value = azurerm_kubernetes_cluster.sncf.node_resource_group
+}
