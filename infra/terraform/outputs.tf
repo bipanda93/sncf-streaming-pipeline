@@ -30,3 +30,7 @@ output "subnet_private_endpoints_id" {
 output "key_vault_name" {
   value = azurerm_key_vault.sncf.name
 }
+
+output "storage_account_name" {
+  value = azurerm_storage_account.sncf.name
+}
