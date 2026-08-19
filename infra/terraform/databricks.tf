@@ -12,7 +12,7 @@ resource "azurerm_databricks_workspace" "sncf" {
   # Standard -- suffisant pour ce projet (pas besoin des fonctionnalités
   # Premium comme le contrôle d'accès fin par table, qu'Unity Catalog
   # apporte déjà indépendamment du SKU workspace).
-  sku = "standard"
+  sku = "premium"
 
   # Injection dans notre VNet plutôt que dans un réseau managé par Azure --
   # permet une connectivité privée avec ADLS Gen2 et Event Hubs, cohérent
