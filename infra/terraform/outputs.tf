@@ -26,3 +26,7 @@ output "subnet_aks_id" {
 output "subnet_private_endpoints_id" {
   value = azurerm_subnet.private_endpoints.id
 }
+
+output "key_vault_name" {
+  value = azurerm_key_vault.sncf.name
+}
