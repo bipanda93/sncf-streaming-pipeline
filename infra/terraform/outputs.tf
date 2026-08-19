@@ -34,3 +34,11 @@ output "key_vault_name" {
 output "storage_account_name" {
   value = azurerm_storage_account.sncf.name
 }
+
+output "eventhub_namespace_name" {
+  value = azurerm_eventhub_namespace.sncf.name
+}
+
+output "eventhub_name" {
+  value = azurerm_eventhub.sncf_raw.name
+}
