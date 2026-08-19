@@ -234,3 +234,20 @@ commit fautif, pas avant).
 credential reset`) en priorité absolue, indépendamment du nettoyage de
 l'historique Git -- un secret qui a fuité se révoque, il ne se cache pas
 mieux.
+
+---
+
+## Réseau
+
+### VNet explicite plutôt que réseau géré automatiquement par chaque service
+**Contexte** : Databricks et AKS peuvent chacun créer leur propre réseau
+isolé automatiquement, sans configuration Terraform dédiée.
+**Alternative écartée** : laisser chaque service gérer son réseau
+séparément (plus simple à écrire, mais services isolés les uns des autres,
+tout le trafic entre eux transiterait par internet public).
+**Décision** : un VNet unique, avec des sous-réseaux dédiés par service.
+**Justification** : permet une connectivité privée entre Databricks, AKS et
+ADLS Gen2 (jamais via internet public) -- pattern attendu en architecture de
+production réelle, pas un raccourci de POC. Coût nul : un VNet n'est pas une
+ressource facturée en soi, contrairement à AKS ou Databricks -- aucun
+compromis budgétaire à faire sur ce choix précis.
