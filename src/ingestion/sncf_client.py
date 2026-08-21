@@ -22,6 +22,10 @@ logger = logging.getLogger(__name__)
 
 BASE_URL = "https://api.sncf.com/v1/coverage/sncf"
 
+# Plafond de sécurité -- évite une boucle infinie si l'API renvoyait un
+# total_result incohérent (bug côté serveur, réponse malformée...).
+MAX_PAGES = 10
+
 
 class SNCFAPIError(Exception):
     """Levée quand l'API SNCF répond avec une erreur, ou quand on tente un
@@ -66,46 +70,62 @@ class SNCFClient:
     def get_disruptions(self) -> list[dict]:
         """
         Récupère les perturbations du réseau SNCF, filtrées sur la journée
-        en cours (UTC).
+        en cours (UTC), avec pagination automatique si nécessaire.
 
-        Pourquoi ce filtre : sans lui, l'endpoint retourne TOUT l'historique
-        connu (2591 perturbations constatées lors de nos tests, mélangeant
-        passé et présent), paginé 25 par page. Se limiter à aujourd'hui et
-        demander count=1000 (le maximum autorisé par Navitia) permet de tout
-        récupérer en un seul appel -- l'historique au-delà d'aujourd'hui est
-        du ressort de la source batch régularité (src/historical/), pas de
-        ce flux temps réel.
-
-        Garde-fou : si total_result dépasse ce qu'on a reçu (plus de 1000
-        perturbations en une seule journée -- grève nationale par exemple),
-        un warning est loggé plutôt que de perdre des données en silence.
+        INCIDENT DU 21/08 (voir notes/incidents_2026-08-21.md) : count=1000
+        (max autorisé par Navitia en une page) suffisait lors de la
+        conception initiale, mais le volume réel de perturbations actives
+        a dépassé ce seuil (1275, puis 1305 le même jour) -- des
+        perturbations étaient silencieusement non récupérées, un simple
+        warning étant loggé sans jamais aller chercher la suite. Corrigé
+        par une vraie boucle de pagination, incrémentant start_page
+        (paramètre confirmé via la documentation officielle Navitia)
+        jusqu'à récupérer total_result perturbations, plafonnée par
+        MAX_PAGES par sécurité.
         """
         if self.mock_mode:
             return self._mock_disruptions()
 
         today = datetime.now(timezone.utc).strftime("%Y%m%d")
-        data = self._get(
-            "/disruptions",
-            params={
-                "count": 1000,
-                "since": f"{today}000000",
-                "until": f"{today}235959",
-            },
-        )
+        all_disruptions: list[dict] = []
+        start_page = 0
+        total = 0
 
-        pagination = data.get("pagination", {})
-        total = pagination.get("total_result", 0)
-        received = pagination.get("items_on_page", 0)
-        if total > received:
-            logger.warning(
-                "Pagination incomplète : %d perturbation(s) reçue(s) sur %d "
-                "au total -- envisager une boucle de pagination si ce cas "
-                "devient fréquent.",
-                received,
-                total,
+        while True:
+            data = self._get(
+                "/disruptions",
+                params={
+                    "count": 1000,
+                    "start_page": start_page,
+                    "since": f"{today}000000",
+                    "until": f"{today}235959",
+                },
             )
 
-        return data.get("disruptions", [])
+            page_disruptions = data.get("disruptions", [])
+            all_disruptions.extend(page_disruptions)
+
+            pagination = data.get("pagination", {})
+            total = pagination.get("total_result", 0)
+
+            if len(all_disruptions) >= total or not page_disruptions:
+                break
+
+            start_page += 1
+            if start_page >= MAX_PAGES:
+                logger.warning(
+                    "Pagination arrêtée après %d pages (%d/%d perturbations "
+                    "récupérées) -- plafond de sécurité MAX_PAGES atteint.",
+                    MAX_PAGES, len(all_disruptions), total,
+                )
+                break
+
+        logger.info(
+            "Pagination -- %d perturbation(s) récupérée(s) sur %d au total (%d page(s)).",
+            len(all_disruptions), total, start_page + 1,
+        )
+
+        return all_disruptions
 
     def search_places(self, query: str) -> list[dict]:
         """
