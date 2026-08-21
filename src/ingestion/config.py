@@ -42,6 +42,7 @@ DELTA_GOLD_MONTHLY_SUMMARIES_PATH = os.getenv(
 
 # --- Gouvernance ------------------------------------------------------------
 DELTA_GOLD_AUDIT_LOG_PATH = os.getenv("DELTA_GOLD_AUDIT_LOG_PATH", "/tmp/delta/gold/audit_log")
+DELTA_GOLD_PIPELINE_METRICS_PATH = os.getenv("DELTA_GOLD_PIPELINE_METRICS_PATH", "/tmp/delta/gold/pipeline_metrics")
 
 
 def build_kafka_config() -> dict:
