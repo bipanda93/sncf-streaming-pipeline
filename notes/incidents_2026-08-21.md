@@ -43,3 +43,14 @@ révélé le problème. Les incidents n°1 et n°2, pris isolément, semblaient
 mineurs et sans lien ; reliés à l'incident n°3, ils forment une même cause
 racine -- illustration de l'intérêt de ne pas classer un symptôme comme
 "résolu" simplement parce qu'il ne se reproduit pas immédiatement.
+
+## 4. Pagination Navitia incomplète — jusqu'à 21% des perturbations perdues silencieusement
+
+| | |
+|---|---|
+| **Découverte** | En relançant l'ingestion après l'incident n°3, un warning déjà présent dans le code (mais jamais réellement déclenché jusqu'ici) s'active : `1000 perturbation(s) reçue(s) sur 1275/1305 au total` |
+| **Cause** | `count=1000` avait été fixé comme "le maximum autorisé par Navitia" dès la conception -- vrai pour un seul appel, mais aucune boucle n'avait jamais été codée pour aller chercher les pages suivantes. Le volume réel de perturbations actives a dépassé ce seuil pour la première fois aujourd'hui |
+| **Vérification préventive** | Documentation officielle Navitia consultée avant correction pour confirmer le nom exact du paramètre de pagination (`start_page`), plutôt que de deviner et risquer une boucle infinie ou des doublons |
+| **Correction** | Boucle `while` dans `get_disruptions()`, incrémente `start_page` jusqu'à récupérer `total_result` perturbations, plafonnée à `MAX_PAGES=10` par sécurité |
+| **Validation** | 1311 perturbations récupérées sur 1311 au total, 2 pages, aucun avertissement |
+| **Incident de process** | La première tentative de correction a échoué silencieusement (fichier jamais réécrit) sans qu'aucune erreur ne s'affiche -- détecté uniquement parce que le message de log observé était identique à l'ancienne version. Rattrapé par une vérification explicite (`grep`) avant tout nouveau test, plutôt que de supposer que l'écriture avait réussi |
