@@ -46,7 +46,6 @@ services:
     volumes:
       - ./dags:/opt/airflow/dags
       - ./:/opt/airflow/project
-      - /tmp/delta:/tmp/delta
     working_dir: /opt/airflow/project
     ports:
       - "8081:8080"   # 8080 déjà pris par kafka-ui

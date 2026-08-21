@@ -2,6 +2,7 @@
 Configuration centralisée, chargée depuis les variables d'environnement (.env en local).
 """
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 
@@ -18,31 +19,54 @@ KAFKA_SASL_PASSWORD = os.getenv("KAFKA_SASL_PASSWORD", "")
 TOPIC_RAW = os.getenv("KAFKA_TOPIC_RAW", "sncf-raw")
 POLL_INTERVAL_SECONDS = int(os.getenv("POLL_INTERVAL_SECONDS", "300"))
 
-DELTA_BRONZE_PATH = os.getenv("DELTA_BRONZE_PATH", "/tmp/delta/bronze/sncf_raw")
-CHECKPOINT_BRONZE_PATH = os.getenv("CHECKPOINT_BRONZE_PATH", "/tmp/delta/checkpoints/bronze_sncf_raw")
+# --- Stockage Delta Lake -----------------------------------------------------
+# INCIDENT DU 21/08 (voir notes/incidents_2026-08-21.md) : tout était stocké
+# sous /tmp/delta -- macOS vide intégralement /tmp à chaque redémarrage du
+# Mac, ce qui a effacé silencieusement plusieurs jours de données accumulées
+# (Bronze, Silver, Gold, métriques). C'est la cause racine probable du faible
+# volume d'historique observé pour Isolation Forest toute la semaine.
+#
+# Correction : chemin de base calculé depuis l'emplacement de ce fichier
+# (racine du projet + data/delta), jamais sous /tmp -- fonctionne
+# identiquement sur l'hôte (Mac) et dans le conteneur Airflow, puisque tout
+# le dossier du projet est déjà monté dans le conteneur
+# (voir docker-compose.yml, ./:/opt/airflow/project).
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+DELTA_BASE_PATH = os.getenv("DELTA_BASE_PATH", str(_PROJECT_ROOT / "data" / "delta"))
 
-DELTA_BRONZE_HISTORICAL_PATH = os.getenv("DELTA_BRONZE_HISTORICAL_PATH", "/tmp/delta/bronze/historical")
+DELTA_BRONZE_PATH = os.getenv("DELTA_BRONZE_PATH", f"{DELTA_BASE_PATH}/bronze/sncf_raw")
+CHECKPOINT_BRONZE_PATH = os.getenv("CHECKPOINT_BRONZE_PATH", f"{DELTA_BASE_PATH}/checkpoints/bronze_sncf_raw")
 
-DELTA_SILVER_PATH = os.getenv("DELTA_SILVER_PATH", "/tmp/delta/silver/sncf_disruptions")
-DELTA_SILVER_REJECT_PATH = os.getenv("DELTA_SILVER_REJECT_PATH", "/tmp/delta/silver/sncf_disruptions_reject")
+DELTA_BRONZE_HISTORICAL_PATH = os.getenv("DELTA_BRONZE_HISTORICAL_PATH", f"{DELTA_BASE_PATH}/bronze/historical")
 
-DELTA_SILVER_HISTORICAL_PATH = os.getenv("DELTA_SILVER_HISTORICAL_PATH", "/tmp/delta/silver/historical")
-DELTA_SILVER_HISTORICAL_REJECT_PATH = os.getenv("DELTA_SILVER_HISTORICAL_REJECT_PATH", "/tmp/delta/silver/historical_reject")
+DELTA_SILVER_PATH = os.getenv("DELTA_SILVER_PATH", f"{DELTA_BASE_PATH}/silver/sncf_disruptions")
+DELTA_SILVER_REJECT_PATH = os.getenv("DELTA_SILVER_REJECT_PATH", f"{DELTA_BASE_PATH}/silver/sncf_disruptions_reject")
 
-DELTA_GOLD_REALTIME_ALERTS_PATH = os.getenv("DELTA_GOLD_REALTIME_ALERTS_PATH", "/tmp/delta/gold/realtime_alerts")
-DELTA_GOLD_PUNCTUALITY_TRENDS_PATH = os.getenv("DELTA_GOLD_PUNCTUALITY_TRENDS_PATH", "/tmp/delta/gold/punctuality_trends")
-DELTA_GOLD_DISRUPTION_CONTEXT_PATH = os.getenv("DELTA_GOLD_DISRUPTION_CONTEXT_PATH", "/tmp/delta/gold/disruption_context")
+DELTA_SILVER_HISTORICAL_PATH = os.getenv("DELTA_SILVER_HISTORICAL_PATH", f"{DELTA_BASE_PATH}/silver/historical")
+DELTA_SILVER_HISTORICAL_REJECT_PATH = os.getenv(
+    "DELTA_SILVER_HISTORICAL_REJECT_PATH", f"{DELTA_BASE_PATH}/silver/historical_reject"
+)
+
+DELTA_GOLD_REALTIME_ALERTS_PATH = os.getenv("DELTA_GOLD_REALTIME_ALERTS_PATH", f"{DELTA_BASE_PATH}/gold/realtime_alerts")
+DELTA_GOLD_PUNCTUALITY_TRENDS_PATH = os.getenv(
+    "DELTA_GOLD_PUNCTUALITY_TRENDS_PATH", f"{DELTA_BASE_PATH}/gold/punctuality_trends"
+)
+DELTA_GOLD_DISRUPTION_CONTEXT_PATH = os.getenv(
+    "DELTA_GOLD_DISRUPTION_CONTEXT_PATH", f"{DELTA_BASE_PATH}/gold/disruption_context"
+)
 
 # --- Enrichissement LLM (mensuel) ------------------------------------------
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY") or None
 CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-haiku-4-5-20251001")
 DELTA_GOLD_MONTHLY_SUMMARIES_PATH = os.getenv(
-    "DELTA_GOLD_MONTHLY_SUMMARIES_PATH", "/tmp/delta/gold/monthly_disruption_summaries"
+    "DELTA_GOLD_MONTHLY_SUMMARIES_PATH", f"{DELTA_BASE_PATH}/gold/monthly_disruption_summaries"
 )
 
 # --- Gouvernance ------------------------------------------------------------
-DELTA_GOLD_AUDIT_LOG_PATH = os.getenv("DELTA_GOLD_AUDIT_LOG_PATH", "/tmp/delta/gold/audit_log")
-DELTA_GOLD_PIPELINE_METRICS_PATH = os.getenv("DELTA_GOLD_PIPELINE_METRICS_PATH", "/tmp/delta/gold/pipeline_metrics")
+DELTA_GOLD_AUDIT_LOG_PATH = os.getenv("DELTA_GOLD_AUDIT_LOG_PATH", f"{DELTA_BASE_PATH}/gold/audit_log")
+DELTA_GOLD_PIPELINE_METRICS_PATH = os.getenv(
+    "DELTA_GOLD_PIPELINE_METRICS_PATH", f"{DELTA_BASE_PATH}/gold/pipeline_metrics"
+)
 
 
 def build_kafka_config() -> dict:
