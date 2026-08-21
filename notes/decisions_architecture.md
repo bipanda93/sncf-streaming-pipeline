@@ -296,3 +296,24 @@ managé, intégration native).
 pour Prometheus lui-même) tout en conservant un vrai PromQL et un vrai
 Grafana -- combine la contrainte de coût du compte étudiant avec la valeur
 de démontrer ces deux outils, largement utilisés en entreprise.
+
+---
+
+## Stockage
+
+### Chemin de base calculé dynamiquement, hors de /tmp
+**Contexte** : toutes les tables Delta du projet vivaient sous `/tmp/delta`
+depuis la conception initiale -- jamais questionné jusqu'à ce qu'un
+incident révèle que macOS vide intégralement `/tmp` à chaque redémarrage
+du Mac (voir notes/incidents_2026-08-21.md, incident n°3).
+**Alternative écartée** : garder `/tmp/delta` avec une sauvegarde
+périodique manuelle -- rejeté, un mécanisme de contournement n'aurait pas
+supprimé le risque, seulement retardé la prochaine perte de données.
+**Décision** : chemin de base calculé depuis l'emplacement de `config.py`
+lui-même (`<racine_projet>/data/delta`), jamais sous un dossier système
+volatile.
+**Justification** : fonctionne identiquement sur l'hôte et dans le
+conteneur Airflow sans montage Docker séparé (le dossier projet entier est
+déjà monté) -- simplifie `docker-compose.yml` en plus de corriger le
+problème de fond. `data/` exclu du suivi Git (fichiers binaires, pas de
+valeur à versionner).

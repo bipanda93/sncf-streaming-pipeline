@@ -325,3 +325,40 @@ l'usage, pas à l'infrastructure) avec une vraie compétence Prometheus/PromQL
 et Grafana à démontrer en entretien, sans jamais recréer le risque de quota
 déjà rencontré. Remplace la proposition initiale "Azure Monitor seul avec
 Grafana en simple visualisation".
+
+---
+
+## 21 AOÛT — Incident critique de stockage, module Power BI amorcé
+
+**Bilan de la journée** : diagnostic et correction du bug le plus impactant
+du projet (perte de données silencieuse sous `/tmp`), amorce du chantier
+Power BI (préparation KPIs, script d'export), mise en place d'un plan de
+gestion de projet (Jira) pour la suite jusqu'à la soutenance.
+
+**Détection** : `export_for_powerbi.py`, script écrit pour préparer la
+connexion Power BI, échoue sur une table introuvable -- déclenche
+l'investigation qui révèle que `/tmp/delta` (emplacement de stockage
+utilisé depuis le tout début du projet, 11/08) est vidé par macOS à chaque
+redémarrage du Mac. Explique rétrospectivement pourquoi l'historique
+Isolation Forest ne dépassait jamais 2-3 points malgré Airflow actif en
+continu depuis le 17/08. Détail complet dans
+notes/incidents_2026-08-21.md.
+
+**Correction** : stockage déplacé vers `<racine_projet>/data/delta`,
+calculé dynamiquement dans `config.py` -- ne dépend plus d'un emplacement
+système volatile. Pipeline à relancer entièrement pour reconstituer un
+historique qui, cette fois, survivra aux redémarrages.
+
+**Power BI** : réflexion sur le choix des KPIs (principe retenu : le test
+du "et alors ?" -- écarter tout chiffre qui ne déclenche aucune décision).
+Point technique clarifié : Power BI ne comprend pas nativement le journal
+de transactions Delta Lake -- un script d'export dédié
+(`export_for_powerbi.py`) produit des instantanés Parquet plats,
+consommables sans ambiguïté, plutôt que de connecter Power BI directement
+au dossier Delta ou de maintenir Databricks actif en continu (coût).
+
+**Gestion de projet** : plan en 5 phases construit pour la suite du
+projet, jusqu'à la semaine de soutenance (17/12) -- couvre à la fois les
+chantiers techniques restants et la rédaction du mémoire. Jira identifié
+comme outil de suivi (connecteur Atlassian Rovo repéré, pas encore
+connecté).
