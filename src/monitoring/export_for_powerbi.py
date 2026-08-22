@@ -14,6 +14,7 @@ Usage :
     python -m src.monitoring.export_for_powerbi
 """
 import logging
+from pathlib import Path
 
 from delta import configure_spark_with_delta_pip
 from pyspark.sql import SparkSession
@@ -23,7 +24,7 @@ from src.ingestion import config
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger(__name__)
 
-EXPORT_DIR = "/tmp/powerbi_export"
+EXPORT_DIR = str(Path(__file__).resolve().parent.parent.parent / "data" / "powerbi_export")
 
 TABLES_TO_EXPORT = {
     "gold_realtime_alerts": config.DELTA_GOLD_REALTIME_ALERTS_PATH,
