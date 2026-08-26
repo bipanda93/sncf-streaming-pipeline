@@ -317,3 +317,19 @@ conteneur Airflow sans montage Docker séparé (le dossier projet entier est
 déjà monté) -- simplifie `docker-compose.yml` en plus de corriger le
 problème de fond. `data/` exclu du suivi Git (fichiers binaires, pas de
 valeur à versionner).
+
+---
+
+## Restitution — traitement des valeurs manquantes
+
+### NULL sur region_taux_historique_moyen (trip canceled) — géré côté Power BI, pas corrigé en pipeline
+**Contexte** : 8 lignes (annulations totales, gold_disruption_context) ont
+`region_taux_historique_moyen` NULL -- caractéristique réelle (aucune gare
+affectée à géolocaliser pour une annulation complète), pas un bug.
+**Décision** : documenté via une mention en bas de page Power BI plutôt
+qu'un correctif de pipeline -- gain marginal ne justifiant pas le temps
+à ce stade du projet.
+**Point de vigilance noté** : `nb_regions_affectees` (NULL) et
+`nb_affected_stations` (0, via coalesce déjà appliqué) traitent la même
+situation différemment -- à harmoniser si une comparaison directe des deux
+métriques est faite un jour.
