@@ -1,19 +1,24 @@
 """
-Exporte un instantané des 3 tables Gold vers des fichiers Parquet plats
-(sans la couche Delta) -- Power BI ne comprend pas nativement le journal
-de transactions Delta (_delta_log), et pointer un connecteur "dossier"
-directement sur une table Delta renvoie la liste des fichiers bruts,
-potentiellement obsolètes, plutôt que les données réelles.
+Exporte un instantané des tables Gold vers des fichiers Parquet plats,
+consommables directement par Power BI (mode Direct Lake, Fabric).
 
-Alternative écartée : connexion Power BI <-> Databricks en direct --
-nécessiterait de garder le cluster Databricks actif en permanence pour
-chaque rafraîchissement, contraire à la discipline de coût du projet
-(apply -> vérifier -> destroy).
+Deux exports supplémentaires (by_region, by_station) éclatent les colonnes
+multi-valeurs (regions_affectees, affected_stations) en une ligne par
+valeur -- fait en Python plutôt qu'en Power Query, puisque Direct Lake ne
+passe pas par une couche de transformation intermédiaire. Les deux
+éclatements sont VOLONTAIREMENT séparés (pas dans le même export) pour
+éviter un produit croisé région x gare qui fausserait les comptages.
+
+Nettoyage automatique avant écriture -- une version antérieure du script
+utilisait df.write.parquet() (Spark), qui crée un DOSSIER portant le nom
+de la table plutôt qu'un fichier unique. Sans ce nettoyage, pandas refuse
+d'écrire un fichier là où un dossier du même nom existe déjà.
 
 Usage :
     python -m src.monitoring.export_for_powerbi
 """
 import logging
+import shutil
 from pathlib import Path
 
 from delta import configure_spark_with_delta_pip
@@ -42,17 +47,60 @@ def build_spark_session() -> SparkSession:
     return configure_spark_with_delta_pip(builder).getOrCreate()
 
 
+def _clear_existing(output_path: str) -> None:
+    """Supprime tout fichier OU dossier résiduel au chemin cible, avant
+    écriture -- garantit un export idempotent quel que soit ce qui
+    traînait avant (résidu Spark, ancien run, etc.)."""
+    p = Path(output_path)
+    if p.is_dir():
+        shutil.rmtree(p)
+    elif p.exists():
+        p.unlink()
+
+
+def export_exploded(pandas_df, column_to_split: str, output_name: str) -> None:
+    """Une ligne par valeur individuelle (région ou gare) -- jamais les
+    deux colonnes multi-valeurs éclatées ensemble (évite le produit
+    croisé)."""
+    exploded = pandas_df.copy()
+    exploded[column_to_split] = exploded[column_to_split].str.split(", ")
+    exploded = exploded.explode(column_to_split)
+    exploded = exploded[exploded[column_to_split].notna() & (exploded[column_to_split] != "")]
+
+    output_path = f"{EXPORT_DIR}/{output_name}.parquet"
+    _clear_existing(output_path)
+    exploded.to_parquet(output_path, index=False)
+    logger.info("%s exporté (%d lignes, éclaté sur '%s') -> %s", output_name, len(exploded), column_to_split, output_path)
+
+
 def run_export() -> None:
     spark = build_spark_session()
     spark.sparkContext.setLogLevel("WARN")
 
+    Path(EXPORT_DIR).mkdir(parents=True, exist_ok=True)
+
     for table_name, delta_path in TABLES_TO_EXPORT.items():
         df = spark.read.format("delta").load(delta_path)
+        pandas_df = df.toPandas()
+
         output_path = f"{EXPORT_DIR}/{table_name}.parquet"
-        # coalesce(1) -- un seul fichier Parquet, plus simple à partager
-        # avec l'environnement Windows que 200 petits fichiers fragmentés.
-        df.coalesce(1).write.mode("overwrite").parquet(output_path)
-        logger.info("%s exporté (%d lignes) -> %s", table_name, df.count(), output_path)
+        _clear_existing(output_path)
+        pandas_df.to_parquet(output_path, index=False)
+        logger.info("%s exporté (%d lignes) -> %s", table_name, len(pandas_df), output_path)
+
+        if table_name == "gold_disruption_context":
+            cols_communes = [
+                "disruption_id", "alert_level", "severity_name",
+                "period_begin", "period_end",
+            ]
+            export_exploded(
+                pandas_df[cols_communes + ["regions_affectees"]],
+                "regions_affectees", "gold_disruption_by_region",
+            )
+            export_exploded(
+                pandas_df[cols_communes + ["affected_stations"]],
+                "affected_stations", "gold_disruption_by_station",
+            )
 
 
 if __name__ == "__main__":
