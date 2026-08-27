@@ -5,14 +5,18 @@ consommables directement par Power BI (mode Direct Lake, Fabric).
 Deux exports supplémentaires (by_region, by_station) éclatent les colonnes
 multi-valeurs (regions_affectees, affected_stations) en une ligne par
 valeur -- fait en Python plutôt qu'en Power Query, puisque Direct Lake ne
-passe pas par une couche de transformation intermédiaire. Les deux
-éclatements sont VOLONTAIREMENT séparés (pas dans le même export) pour
-éviter un produit croisé région x gare qui fausserait les comptages.
+passe pas par une couche de transformation intermédiaire.
+
+INCIDENT DU 27/08 : Fabric refusait les fichiers ("Illegal Parquet type:
+INT64 (TIMESTAMP(NANOS,false))") -- PyArrow écrit désormais les timestamps
+nativement en précision nanoseconde par défaut (version Parquet 2.6),
+alors que Delta Lake (le moteur derrière les tables Fabric) n'accepte que
+la précision microseconde. Corrigé en forçant coerce_timestamps='us' à
+l'écriture.
 
 Nettoyage automatique avant écriture -- une version antérieure du script
 utilisait df.write.parquet() (Spark), qui crée un DOSSIER portant le nom
-de la table plutôt qu'un fichier unique. Sans ce nettoyage, pandas refuse
-d'écrire un fichier là où un dossier du même nom existe déjà.
+de la table plutôt qu'un fichier unique.
 
 Usage :
     python -m src.monitoring.export_for_powerbi
@@ -31,6 +35,10 @@ logger = logging.getLogger(__name__)
 
 EXPORT_DIR = str(Path(__file__).resolve().parent.parent.parent / "data" / "powerbi_export")
 
+# Delta Lake (moteur des tables Fabric) n'accepte que les timestamps en
+# précision microseconde -- voir incident du 27/08 ci-dessus.
+PARQUET_TIMESTAMP_KWARGS = {"coerce_timestamps": "us", "allow_truncated_timestamps": True}
+
 TABLES_TO_EXPORT = {
     "gold_realtime_alerts": config.DELTA_GOLD_REALTIME_ALERTS_PATH,
     "gold_disruption_context": config.DELTA_GOLD_DISRUPTION_CONTEXT_PATH,
@@ -48,9 +56,6 @@ def build_spark_session() -> SparkSession:
 
 
 def _clear_existing(output_path: str) -> None:
-    """Supprime tout fichier OU dossier résiduel au chemin cible, avant
-    écriture -- garantit un export idempotent quel que soit ce qui
-    traînait avant (résidu Spark, ancien run, etc.)."""
     p = Path(output_path)
     if p.is_dir():
         shutil.rmtree(p)
@@ -59,9 +64,6 @@ def _clear_existing(output_path: str) -> None:
 
 
 def export_exploded(pandas_df, column_to_split: str, output_name: str) -> None:
-    """Une ligne par valeur individuelle (région ou gare) -- jamais les
-    deux colonnes multi-valeurs éclatées ensemble (évite le produit
-    croisé)."""
     exploded = pandas_df.copy()
     exploded[column_to_split] = exploded[column_to_split].str.split(", ")
     exploded = exploded.explode(column_to_split)
@@ -69,7 +71,7 @@ def export_exploded(pandas_df, column_to_split: str, output_name: str) -> None:
 
     output_path = f"{EXPORT_DIR}/{output_name}.parquet"
     _clear_existing(output_path)
-    exploded.to_parquet(output_path, index=False)
+    exploded.to_parquet(output_path, index=False, **PARQUET_TIMESTAMP_KWARGS)
     logger.info("%s exporté (%d lignes, éclaté sur '%s') -> %s", output_name, len(exploded), column_to_split, output_path)
 
 
@@ -85,7 +87,7 @@ def run_export() -> None:
 
         output_path = f"{EXPORT_DIR}/{table_name}.parquet"
         _clear_existing(output_path)
-        pandas_df.to_parquet(output_path, index=False)
+        pandas_df.to_parquet(output_path, index=False, **PARQUET_TIMESTAMP_KWARGS)
         logger.info("%s exporté (%d lignes) -> %s", table_name, len(pandas_df), output_path)
 
         if table_name == "gold_disruption_context":
