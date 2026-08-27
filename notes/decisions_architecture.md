@@ -333,3 +333,29 @@ qu'un correctif de pipeline -- gain marginal ne justifiant pas le temps
 `nb_affected_stations` (0, via coalesce déjà appliqué) traitent la même
 situation différemment -- à harmoniser si une comparaison directe des deux
 métriques est faite un jour.
+
+---
+
+## Orchestration
+
+### pipeline_complet_manuel mis de côté (deuxième incident)
+**Contexte** : bloqué en `queued` permanent lors d'un déclenchement
+multiple accidentel (26/08) -- cause racine non identifiée avec certitude,
+deuxième incident réel sur ce DAG après celui du 17/08.
+**Décision** : préférer le déclenchement direct des DAGs individuels
+(`ingestion_bronze_temps_reel`, `silver_gold_temps_reel`...) plutôt que le
+wrapper, jusqu'à investigation plus poussée.
+**Statut** : DAG conservé dans le projet (documente une intention
+d'orchestration manuelle complète), mais déconseillé en pratique pour
+l'instant.
+
+### Base de métadonnées Airflow -- persistance non appliquée (ouvert)
+**Contexte** : `docker-compose down` + `up` efface entièrement la base
+interne d'Airflow (contrairement à `restart`, qui la préserve) --
+découvert le 26/08 après un `no such table: dag`.
+**Correction proposée, non appliquée** : volume dédié
+(`./airflow_metadata:/opt/airflow/persistent_db`) +
+`AIRFLOW__DATABASE__SQL_ALCHEMY_CONN` pointant dessus.
+**Statut** : ouvert -- à appliquer avant la prochaine recréation complète
+du conteneur, sous peine de revivre la perte du compte admin et de
+l'historique des runs.

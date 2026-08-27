@@ -362,3 +362,29 @@ projet, jusqu'à la semaine de soutenance (17/12) -- couvre à la fois les
 chantiers techniques restants et la rédaction du mémoire. Jira identifié
 comme outil de suivi (connecteur Atlassian Rovo repéré, pas encore
 connecté).
+
+---
+
+## 26-27 AOÛT — Rafraîchissement des données, deux incidents Airflow
+
+**Contexte** : reprise du chantier Power BI après plusieurs jours -- les
+données Gold dataient du 21/08 (5 jours), le pipeline local n'ayant tourné
+que pendant que le Mac était allumé (pas de vraie orchestration continue,
+limite déjà identifiée précédemment).
+
+**Incident 1** : `pipeline_complet_manuel` déclenché plusieurs fois sans
+remarquer qu'un run précédent tournait -- 3 exécutions empilées, toutes
+bloquées en `queued` plus d'une heure. Cause racine non identifiée avec
+certitude ; résolu par recréation complète du conteneur Airflow. Décision :
+DAG mis de côté, préférence pour un déclenchement direct des DAGs
+individuels.
+
+**Incident 2**, découvert en cascade : la base de métadonnées Airflow
+(utilisateurs, historique, état pause/actif) ne survit pas à un
+`docker-compose down`/`up` -- jamais montée en volume persistant. Correction
+proposée, pas encore appliquée. Détail complet dans
+notes/incidents_2026-08-26.md.
+
+**Résultat** : données rafraîchies avec succès malgré les deux incidents --
+Bronze 6044 lignes, Gold 295 alertes (92% géolocalisées). Export Power BI
+relancé, prêt à recharger dans Fabric.
