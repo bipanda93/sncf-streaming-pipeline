@@ -359,3 +359,20 @@ découvert le 26/08 après un `no such table: dag`.
 **Statut** : ouvert -- à appliquer avant la prochaine recréation complète
 du conteneur, sous peine de revivre la perte du compte admin et de
 l'historique des runs.
+
+---
+
+## Power BI / Fabric — mécanisme de rafraîchissement confirmé
+
+### Direct Lake : rapport auto-actualisé, alimentation des tables manuelle
+**Contexte** : clarification nécessaire sur ce qui se passe quand les
+données sources évoluent (nouvelles perturbations Kafka) après la
+construction du rapport.
+**Confirmé** : en mode Direct Lake, le rapport lit l'état courant des
+tables Delta à chaque ouverture -- aucune reconstruction du rapport
+nécessaire quand les données changent. Distinction claire entre "le
+rapport" (construit une fois, stable) et "les données" (à rafraîchir
+régulièrement).
+**Limite persistante** : l'alimentation des tables reste manuelle en 3
+étapes (export → upload → Load to Tables), tant que le blocage Service
+Principal (voir board Trello, "Problèmes et requêtes") n'est pas levé.

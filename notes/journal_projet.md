@@ -388,3 +388,34 @@ notes/incidents_2026-08-26.md.
 **Résultat** : données rafraîchies avec succès malgré les deux incidents --
 Bronze 6044 lignes, Gold 295 alertes (92% géolocalisées). Export Power BI
 relancé, prêt à recharger dans Fabric.
+
+---
+
+## 27 AOÛT — Fabric opérationnel, premier modèle sémantique construit
+
+**Contexte** : reprise après la correction des incidents Airflow de la
+veille -- données fraîches (295 alertes, 92% géolocalisées) déjà
+exportées.
+
+**Incident découvert et corrigé** : Fabric rejetait les fichiers Parquet
+à cause d'une incompatibilité de précision sur les timestamps (nanoseconde
+vs microseconde) -- détail complet dans
+notes/incidents_2026-08-27.md.
+
+**Progrès** : les 5 tables Gold chargées avec succès dans le Lakehouse
+Fabric. Modèle sémantique vérifié (relations `gold_disruption_context` →
+`by_region`/`by_station`, correctement en "un vers plusieurs"). 6 mesures
+DAX créées : durée moyenne des perturbations, régions/gares affectées,
+répartition par niveau d'alerte, comparaison au taux historique.
+
+**Point de fonctionnement clarifié** : le rapport Power BI (mode Direct
+Lake) se rafraîchit automatiquement dès que les tables Delta sous-jacentes
+changent -- pas besoin de reconstruire le rapport à chaque nouvelle
+donnée. Seule l'alimentation des tables reste manuelle en 3 étapes
+(export Python → upload Fabric → Load to Tables), le blocage Service
+Principal (permission tenant IEF2I) empêchant toujours une automatisation
+complète via Airflow.
+
+**Reste à faire** : construction des visuels (KPI en cartes, top
+régions/gares, comparaison historique) -- prévue pour la prochaine
+session.
