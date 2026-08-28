@@ -419,3 +419,33 @@ complète via Airflow.
 **Reste à faire** : construction des visuels (KPI en cartes, top
 régions/gares, comparaison historique) -- prévue pour la prochaine
 session.
+
+---
+
+## 28 AOÛT — Trois incidents Airflow/Kafka corrigés, chaîne complète reconstituée
+
+**Contexte** : reprise après plusieurs jours sans exécution automatique
+continue (Airflow ne tourne que pendant que la machine est active, limite
+déjà connue). Tentative de rafraîchir les données a révélé une cascade de
+trois incidents distincts, tous corrigés dans la même session.
+
+**Incident 1** : fichier de checkpoint Kafka corrompu (`Malformed line`)
+-- Kafka recréé (`stop`/`rm`/`up`), ce qui a réinitialisé le topic sans
+que le checkpoint Spark ne le sache.
+
+**Incident 2** : `KafkaIllegalStateException` -- l'offset attendu par
+Spark (6044) n'existait plus dans le nouveau Kafka (repartie à 1776).
+Corrigé par `failOnDataLoss=false` dans `bronze_ingestion.py`, cohérent
+avec le rôle de Kafka comme simple tampon de transit dans cette
+architecture (pas la source de vérité).
+
+**Incident 3** : `ConcurrentTransactionException` -- `max_active_runs`
+passé à 3 pour absorber un run bloqué a permis à deux exécutions
+d'écrire simultanément sur le même checkpoint Delta. Corrigé par un
+retour à `max_active_runs=1`, la bonne valeur pour une architecture
+streaming+checkpoint (un seul écrivain à la fois, structurellement).
+
+**Résultat** : chaîne complète reconstituée avec succès -- Bronze 11 396
+lignes, Gold 470 alertes (90,2% géolocalisées, cohérent avec
+l'historique). Export Power BI relancé sur les 5 fichiers. Détail complet
+des 3 incidents dans notes/incidents_2026-08-28.md.
