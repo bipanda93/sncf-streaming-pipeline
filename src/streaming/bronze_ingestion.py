@@ -64,11 +64,26 @@ def build_kafka_read_options() -> dict:
     """
     Options de lecture Kafka pour Spark, dérivées de la même config que
     le producer -- jamais dupliquées.
+
+    INCIDENT DU 28/08 (voir notes/incidents_2026-08-28.md) : un
+    redémarrage complet de Kafka (stop + rm + up, pour purger un fichier
+    de checkpoint interne corrompu) a réinitialisé le topic, alors que le
+    checkpoint Spark (stocké séparément, dans data/delta/checkpoints/) se
+    souvenait encore de l'ancien offset. Spark refusait de repartir,
+    l'offset attendu n'existant plus dans le nouveau Kafka -- erreur
+    KafkaIllegalStateException.
+
+    failOnDataLoss=false : cohérent avec le rôle de Kafka dans cette
+    architecture -- un simple tampon de transit, jamais la source de
+    vérité (l'API SNCF, réinterrogeable à volonté, joue ce rôle). Une
+    perte de position dans ce tampon ne justifie pas d'arrêter tout le
+    pipeline.
     """
     options = {
         "kafka.bootstrap.servers": config.KAFKA_BOOTSTRAP_SERVERS,
         "subscribe": config.TOPIC_RAW,
         "startingOffsets": "earliest",  # récupère aussi les messages déjà publiés
+        "failOnDataLoss": "false",
     }
     if config.KAFKA_SECURITY_PROTOCOL.startswith("SASL"):
         options.update(

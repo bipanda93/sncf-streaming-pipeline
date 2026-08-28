@@ -38,7 +38,7 @@ with DAG(
     schedule="0 * * * *",
     start_date=datetime(2026, 8, 17),
     catchup=False,
-    max_active_runs=1,
+    max_active_runs=1,  # Architecture streaming + checkpoint = un seul ecrivain a la fois, jamais de parallelisme sur ce DAG precis (incident du 28/08)
     tags=["sncf", "temps-reel", "bronze"],
 ) as dag:
 
