@@ -449,3 +449,41 @@ streaming+checkpoint (un seul écrivain à la fois, structurellement).
 lignes, Gold 470 alertes (90,2% géolocalisées, cohérent avec
 l'historique). Export Power BI relancé sur les 5 fichiers. Détail complet
 des 3 incidents dans notes/incidents_2026-08-28.md.
+
+---
+
+## 1er SEPTEMBRE — Bascule stratégique Power BI Desktop, en parallèle de Fabric
+
+**Déclencheur** : question posée par un tiers sur l'architecture Fabric/Power BI
+(Direct Lake vs Import, coûts, pérennité) a révélé un vrai risque non anticipé --
+l'essai Fabric expire dans ~7 semaines. À l'expiration : Lakehouse et pipelines
+deviennent immédiatement inutilisables, données récupérables seulement 7 jours si
+réassignation à une capacité payante (inabordable sur budget étudiant).
+
+**Décision** : construire l'architecture de restitution en parallèle sur Power BI
+Desktop (connecteur Dossier, mode Import, fichiers Parquet locaux) --
+indépendante de Fabric, 0€ durablement. Le travail déjà fait dans Fabric
+(Direct Lake, 6 mesures DAX) est conservé comme vitrine technique, pas
+abandonné, mais cesse d'être la seule dépendance du projet.
+
+**Réalisé ce jour, côté Power BI Desktop** :
+- Import des 5 tables Gold + relations reconstruites
+- Structure en 3 pages : Vue d'ensemble, Analyse Géographique, Types de
+  Perturbations
+- Palette de couleurs validée : marron (#4A3728), doré (#C9A227), blanc/crème
+  -- barres en dégradé hiérarchique par rang, répartition alertes en barre
+  empilée (anneau en complément si la place le permet)
+- Ajout de sncf_disruptions (Silver) à l'export -- nécessaire pour les 2
+  nouvelles mesures temporelles, impossibles à calculer depuis Gold seul
+  (voir notes/incidents_2026-09-01.md)
+- 8 mesures DAX au total : les 6 initiales + Perturbations Aujourd'hui +
+  Moyenne Journalière
+
+**Sujet exploré et volontairement écarté pour l'instant** : architecture
+multi-stockage fédérée (Trino + PostgreSQL/MongoDB/Iceberg/Kafka) -- vérifié
+sur le marché français réel (offres DGSE, Innovaccer) : compétence de niveau
+architecte/lead (5+ ans), pas pertinente pour un premier poste. Noté comme
+piste de veille technique / futur projet post-CDI, pas construite.
+
+**Reste à faire** : construire concrètement les 6 cartes KPI sur la Page 1
+dans Power BI, puis Pages 2 et 3.

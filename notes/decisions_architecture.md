@@ -376,3 +376,30 @@ régulièrement).
 **Limite persistante** : l'alimentation des tables reste manuelle en 3
 étapes (export → upload → Load to Tables), tant que le blocage Service
 Principal (voir board Trello, "Problèmes et requêtes") n'est pas levé.
+
+---
+
+## Power BI — architecture double, Fabric + Desktop (01/09)
+
+### Contexte
+L'essai Microsoft Fabric expire ~mi-octobre 2026. À l'expiration, les
+éléments Fabric (Lakehouse, Direct Lake) deviennent inutilisables, avec
+seulement 7 jours de grâce pour récupérer les données avant risque de perte.
+Une capacité payante (F2 minimum, ~262$/mois) est hors budget étudiant.
+
+### Décision
+Deux architectures de restitution maintenues en parallèle :
+1. **Fabric / Direct Lake** (déjà construite) -- conservée comme démonstration
+   technique de ce mode de fonctionnement, pas comme dépendance du projet
+2. **Power BI Desktop / Import** (nouvelle) -- fichiers Parquet locaux via
+   connecteur Dossier, 0€ durablement, aucune dépendance à une capacité cloud
+
+### Justification
+Import préserve automatiquement relations/clés/mesures DAX à chaque
+actualisation, tant que le schéma (noms de colonnes, types) reste stable
+entre exports -- pas de reconstruction nécessaire à chaque nouvelle donnée.
+
+### Conséquence pour le portfolio
+Permet de présenter les deux architectures en entretien comme un choix
+raisonné (compromis coût/performance/pérennité), plutôt que de subir la
+perte du travail Fabric à l'expiration de l'essai.
