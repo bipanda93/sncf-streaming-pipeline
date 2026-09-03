@@ -487,3 +487,27 @@ piste de veille technique / futur projet post-CDI, pas construite.
 
 **Reste à faire** : construire concrètement les 6 cartes KPI sur la Page 1
 dans Power BI, puis Pages 2 et 3.
+
+---
+
+## 2 SEPTEMBRE — Page 2 entièrement construite, carte interactive fonctionnelle
+
+**Page 1** : correction de la confusion carte KPI/carte géographique sur
+les 6 cartes, validée avec de vraies données.
+
+**Page 2 (Analyse Géographique)** : construite en totalité, au-delà du
+plan initial -- Top 5 régions (avec mesure TREATAS pour compter les gares
+distinctes sans relation directe), carte choroplèthe de France par
+région (série d'incidents résolue un par un : catégorie géographique,
+type de visuel, instabilité applicative, réglages de zoom/géocodage),
+segment interactif validé (sélection d'une région filtre gares et carte,
+sans ajustement de relation nécessaire). Détail complet des incidents
+dans notes/incidents_2026-09-02.md.
+
+**Page 3 (Types de Perturbations)** : démarrée -- graphique niveau
+d'alerte, tableau type de perturbation par région fonctionnel, tableau
+niveau par région en cours de correction (reporté au 03/09).
+
+**Nouvelle compétence acquise** : pattern TREATAS pour filtrer une table
+sans relation physique directe, en s'appuyant sur un `disruption_id`
+partagé par construction entre tables issues de la même source.
