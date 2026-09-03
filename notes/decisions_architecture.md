@@ -403,3 +403,32 @@ entre exports -- pas de reconstruction nécessaire à chaque nouvelle donnée.
 Permet de présenter les deux architectures en entretien comme un choix
 raisonné (compromis coût/performance/pérennité), plutôt que de subir la
 perte du travail Fabric à l'expiration de l'essai.
+
+---
+
+## Power BI — TREATAS plutôt que relation bidirectionnelle (03/09)
+
+### Contexte
+Mesure `Nb Perturbations par Région et Niveau` (tableau croisé région ×
+alert_level) renvoyait le même total partout -- diagnostic : la relation
+gold_disruption_by_region -> gold_disruption_context existe bien
+("Plusieurs à un"), mais en direction de filtre "Une seule", donc un
+filtre posé côté by_region n'atteint jamais context.
+
+### Deux options pesées
+1. Passer la relation en filtrage bidirectionnel ("Les deux")
+2. Garder le filtrage à sens unique, transporter le filtre région
+   explicitement via TREATAS dans les mesures qui en ont besoin
+
+### Décision : option 2, TREATAS
+Changer la direction du filtre si tard dans la construction du dashboard
+aurait un effet global sur tout le modèle (risque de résultats gonflés
+sur d'autres mesures déjà validées, via by_region qui a plusieurs lignes
+par perturbation) -- non retestable entièrement dans le temps restant.
+TREATAS confine le changement à la seule mesure qui en a besoin, rend le
+filtre explicite plutôt qu'implicite dans le modèle.
+
+### Principe retenu
+Une relation change le comportement de tout le modèle ; une formule DAX
+change le comportement d'une seule mesure. Préférer la formule ciblée
+quand le risque de duplication est réel et le temps de retest limité.
