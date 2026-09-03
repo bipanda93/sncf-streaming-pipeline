@@ -432,3 +432,27 @@ filtre explicite plutôt qu'implicite dans le modèle.
 Une relation change le comportement de tout le modèle ; une formule DAX
 change le comportement d'une seule mesure. Préférer la formule ciblée
 quand le risque de duplication est réel et le temps de retest limité.
+
+---
+
+## Power BI — granularités mélangées dans gold_punctuality_trends (03/09)
+
+### Contexte
+La table combine 5 jeux de données (TER région, Intercités liaison, TGV
+national/axe/liaison) via un système scope_type/scope_value pensé pour
+l'analyse ligne à ligne -- pas conçu à l'origine pour un agrégat "toutes
+compagnies confondues" sans risque de double comptage.
+
+### Découverte du 03/09
+scope_value mélange en plus, au sein du seul scope_type="region" (TER),
+des appellations pré-2016 et des régions déjà fusionnées post-2016 --
+chevauchement potentiel non quantifié.
+
+### Décision
+Isoler le périmètre exact du risque avant de corriger : vérifié que
+gold_disruption_context (source de la carte et des tableaux Pages 2/3)
+n'est pas affecté, seule gold_punctuality_trends l'est. Visuel construit
+avec titre explicite plutôt que bloquant. Correction de fond (table de
+correspondance ancien/nouveau découpage, ou re-agrégation à la source)
+reportée à une session dédiée -- à traiter avant la rédaction du mémoire
+si ce visuel y figure.
