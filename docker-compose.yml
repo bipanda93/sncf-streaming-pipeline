@@ -1,3 +1,7 @@
+volumes:
+  airflow_home:
+  ivy_cache:
+
 services:
   kafka:
     image: apache/kafka:3.7.0
@@ -44,6 +48,8 @@ services:
       PYTHONPATH: /opt/airflow/project
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
     volumes:
+      - airflow_home:/opt/airflow
+      - ivy_cache:/home/airflow/.ivy2.5.2
       - ./dags:/opt/airflow/dags
       - ./:/opt/airflow/project
     working_dir: /opt/airflow/project

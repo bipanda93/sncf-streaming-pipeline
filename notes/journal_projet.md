@@ -511,3 +511,32 @@ niveau par région en cours de correction (reporté au 03/09).
 **Nouvelle compétence acquise** : pattern TREATAS pour filtrer une table
 sans relation physique directe, en s'appuyant sur un `disruption_id`
 partagé par construction entre tables issues de la même source.
+
+---
+
+## 4-8 SEPTEMBRE — Rattrapage : Mermaid, mesures journalières, incident Ivy
+
+**Documentation** : diagramme du modèle de données (`docs/schema_donnees.md`,
+Mermaid) et besoins métier (`docs/01_besoins_metier.md`) créés. Blocage
+d'affichage résolu après plusieurs tentatives (cache VS Code, changement
+d'extension) -- cause réelle : les mots-clés `PK`/`FK` cassaient le rendu
+sur l'extension installée, retirés du diagramme.
+
+**Power BI** : deux nouvelles mesures, `Moyenne Journalière Incidents
+(Région)` (sans TREATAS, `Jour` et `disruption_id` co-résidents sur
+`by_region`) et `Moyenne Journalière Gares (Région)` (avec TREATAS,
+réutilisation directe du pattern établi).
+
+**Point resté ouvert, non résolu** : une observation ("le nombre
+d'incidents par région semble identique à la moyenne journalière")
+signalée mais jamais clarifiée avec de vrais chiffres avant que la
+session ne bifurque. À reprendre : demander le tableau exact
+(regions_affectees, Nb Incidents par Région, Moyenne Journalière
+Incidents (Région)) avant de diagnostiquer.
+
+**Prompt de continuité** créé (`prompt_continuite_sncf.md`, fourni en
+téléchargement) pour permettre une reprise dans un nouveau Projet Claude
+séparé si besoin -- mémoire non partagée entre Projets.
+
+**8 septembre** : incident Ivy/permissions résolu (voir
+incidents_2026-09-08.md) -- pipeline de nouveau opérationnel.
