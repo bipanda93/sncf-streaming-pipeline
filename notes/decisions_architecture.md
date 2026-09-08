@@ -456,3 +456,35 @@ avec titre explicite plutôt que bloquant. Correction de fond (table de
 correspondance ancien/nouveau découpage, ou re-agrégation à la source)
 reportée à une session dédiée -- à traiter avant la rédaction du mémoire
 si ce visuel y figure.
+
+## 2026-09-08 — Stratégie de persistance des volumes Docker (Airflow)
+
+**Contexte** : deux besoins différents de persistance sur le service
+`airflow` du `docker-compose.yml` — l'état interne critique (métadonnées,
+compte admin, historique DAG runs) et un cache de performance (dépendances
+Ivy/Spark, re-téléchargées à chaque rebuild d'image).
+
+**Décision** : séparer les deux plutôt que tout mettre dans un seul volume.
+
+- État critique (`/opt/airflow`) → **volume nommé Docker** (`airflow_home`).
+  Géré entièrement par Docker, persiste à travers un `down` (sans `-v`), pas
+  besoin d'accès direct depuis l'hôte.
+- Cache de performance (`/home/airflow/.ivy2.5.2`) → **bind mount local**
+  (`./.ivy_cache`). Nécessaire car Docker Desktop Mac crée les volumes nommés
+  avec propriétaire `root`, incompatible avec l'utilisateur non-root du
+  conteneur Airflow custom (`Dockerfile.airflow`) — écriture refusée sinon
+  (`FileNotFoundException` constaté). Un bind mount hérite des permissions du
+  dossier hôte, pas de ce problème.
+
+**Alternative écartée** : tout mettre dans un seul volume nommé — plus simple
+à écrire, mais se heurte au même problème de permissions sur le sous-dossier
+Ivy.
+
+**Alternative écartée** : `chown`/`chmod` du volume au démarrage via un
+entrypoint custom dans le Dockerfile — plus "propre" en théorie, mais
+complexité additionnelle non justifiée par le gain (quelques secondes par
+run) vu le temps disponible avant la soutenance.
+
+**Portée** : ce pattern (bind mount pour tout conteneur custom non-root qui
+a besoin d'écrire dans un volume) est directement réutilisable pour Leclerc,
+en particulier pour les conteneurs Airbyte OSS auto-hébergés.

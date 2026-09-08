@@ -540,3 +540,43 @@ séparé si besoin -- mémoire non partagée entre Projets.
 
 **8 septembre** : incident Ivy/permissions résolu (voir
 incidents_2026-09-08.md) -- pipeline de nouveau opérationnel.
+
+## 2026-09-07 — Page 2 finalisée : infobulles carte + bug AVERAGEX
+
+Page 2 (Analyse Géographique) est maintenant complète. Ajout d'infobulles sur
+la carte choroplèthe en réutilisant les champs déjà présents dans les
+tableaux existants (aucune nouvelle mesure nécessaire) — la carte affiche
+maintenant les vraies valeurs au survol au lieu d'exiger un aller-retour
+visuel vers les tableaux.
+
+En chemin, corrigé un bug DAX sur les mesures de moyenne journalière
+(`AVERAGEX` + `DISTINCTCOUNT` sans `CALCULATE` → renvoyait le total brut au
+lieu d'une moyenne). Détail dans `incidents_2026-09-07.md`. Même famille de
+symptôme que TREATAS, mécanisme différent (transition de contexte ligne →
+filtre à l'intérieur d'un itérateur).
+
+## 2026-09-08 — Pages 3/4 stylées, bug TODAY() corrigé, infra Docker/Airflow réparée
+
+Harmonisation visuelle des Pages 3 et 4 avec la charte crème/doré/marron déjà
+validée — technique la plus rapide : dupliquer un visuel déjà stylé
+(Ctrl+C/Ctrl+V) plutôt que reconstruire le style à la main. Page 3 : titre
+corrigé, donut aux couleurs indiscernables remplacé par un tableau simple.
+Page 4 : couleurs du bar chart "Taux d'Annulation Par Ancien Découpage
+Régional TER" appliquées via une échelle de couleurs liée à la valeur
+(Format > Couleurs des données > fx > Échelle de couleurs) plutôt que des
+couleurs fixes par catégorie — plus robuste, technique à réutiliser pour
+Leclerc dès qu'une palette dynamique par valeur est utile.
+
+Corrigé aussi `Perturbations Aujourd'hui` (`TODAY()` → `MAX(Jour)`, détail
+dans `incidents_2026-09-08.md`).
+
+Après-midi passée sur l'infra Docker/Airflow : DAG en échec (résolution DNS
+`kafka`), plusieurs hypothèses testées et écartées avant un `down`/`up`
+complet qui a réglé le problème. Profité de ce redémarrage pour enfin ajouter
+la persistance Airflow (dette technique connue depuis des sessions), puis
+tentative + fix d'un cache Ivy pour accélérer les runs futurs. Détail complet
+dans `incidents_2026-09-08.md`.
+
+Reste ouvert : écart 627 vs 419 sur "Perturbations Journalière" (pas
+bloquant, à vérifier avant la soutenance), coquille possible sur l'onglet
+"Type de Pertubations".
