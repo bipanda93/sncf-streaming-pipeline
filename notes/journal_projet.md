@@ -653,3 +653,26 @@ conditions réelles pour la première fois. Détail dans
 Migration Azure réelle : Event Hubs est maintenant le seul composant
 confirmé "en usage réel" (pas juste créé) — ADLS Gen2 et AKS restent à
 faire.
+
+## 2026-09-11 (suite 3) — ADLS Gen2 validé de bout en bout
+
+Migration du stockage Delta local vers ADLS Gen2, même méthode qu'Event
+Hubs. Terraform déjà bien préparé (Hierarchical Namespace, 3 conteneurs,
+secret de connexion), juste un secret dédié à la clé seule à ajouter.
+Nouvelle bascule `AZURE_STORAGE_ACCOUNT_NAME` sur le même principe que
+Kafka, fonction `_delta_path()` pour gérer la vraie différence
+structurelle entre les deux modes (dossiers locaux vs conteneurs séparés
+sur Azure) — appliquée aux 13 chemins Delta/checkpoint, vérifiée par
+introspection runtime plutôt que relecture seule.
+
+Un vrai bug trouvé en marge d'un script de nettoyage : la clé de config
+Hadoop nécessite le préfixe `spark.hadoop.` pour propager à toutes les
+couches internes de Spark, pas seulement au chemin DataFrame classique —
+corrigé avant que ça touche le streaming réel. Test bout-en-bout final
+réussi : producteur → Event Hubs → Spark → ADLS Gen2, 812 lignes
+confirmées, cohérent avec le test Event Hubs de la veille. Détail
+complet dans `incidents_2026-09-11.md` (point 9).
+
+Les deux composants Azure prévus pour cette phase (Event Hubs, ADLS
+Gen2) sont maintenant tous les deux validés en conditions réelles. Seul
+AKS (Airflow) reste à faire pour boucler la migration Azure complète.

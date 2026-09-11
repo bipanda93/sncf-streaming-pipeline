@@ -243,3 +243,79 @@ restreinte (ici, lecture seule vs écriture), vérifier explicitement que
 chaque consommateur du code utilise la bonne — une seule variable de
 config partagée entre deux usages aux besoins différents est un piège
 classique, invisible tant qu'on ne teste pas les deux usages séparément.
+
+## 9. ADLS Gen2 — config Spark en deux couches, clé Hadoop mal propagée
+
+**Contexte** : migration du stockage Delta local vers ADLS Gen2, même
+méthode qu'Event Hubs (Terraform déjà prêt à 90%, Key Vault, `config.py`,
+`build_spark_session()`).
+
+**Ce qui existait déjà côté Terraform** : `storage.tf` avait
+`is_hns_enabled = true` (vrai Data Lake Gen2, pas juste Blob Storage), les
+3 conteneurs bronze/silver/gold, et un secret `storage_connection_string`
+dans Key Vault. Manquait : un secret dédié à la clé seule (la chaîne de
+connexion complète n'est pas ce que Spark attend pour `abfss://`) —
+ajouté via `azurerm_key_vault_secret.storage_account_key`.
+
+**Nouvelle bascule introduite** : `AZURE_STORAGE_ACCOUNT_NAME` dans
+`config.py`, sur le même principe que `KAFKA_SECURITY_PROTOCOL` — sa
+présence (non vide) sert à la fois de config et de condition, pas de
+booléen séparé.
+
+**Fonction `_delta_path(layer, table_name)`** ajoutée dans `config.py`,
+appliquée aux 13 variables `DELTA_*`/`CHECKPOINT_*` (auparavant toutes
+dérivées d'un seul `DELTA_BASE_PATH` par f-string). Piège anticipé et
+évité : en local, bronze/silver/gold sont des sous-dossiers d'un même
+chemin ; sur Azure, ce sont 3 conteneurs séparés (le nom du conteneur
+fait partie de l'URL `abfss://`, pas juste un préfixe) — un simple
+remplacement de préfixe n'aurait pas suffi. `CHECKPOINT_BRONZE_PATH`
+rattaché au conteneur `bronze` (checkpoint appartient à l'ingestion
+bronze). Vérifié par introspection runtime (affichage des 13 valeurs
+réelles calculées, en local et en Azure) plutôt que par relecture
+visuelle seule.
+
+**Premier test isolé (écriture/lecture Delta sur ADLS Gen2)** : réussi
+du premier coup — `df.write`/`df.read` fonctionnent avec la config
+Hadoop telle qu'écrite initialement.
+
+**Bug trouvé en tentant de nettoyer le dossier de test** : un script
+utilisant l'API bas niveau (`spark._jsc.hadoopConfiguration()`) a échoué
+avec `Invalid configuration value detected for fs.azure.account.key`,
+alors que `df.write`/`df.read` fonctionnaient. Cause : la clé de config
+Hadoop, écrite sans préfixe (`fs.azure.account.key...`), atteint la
+couche Spark SQL mais pas la couche Hadoop FileSystem bas niveau. Fix :
+préfixer avec `spark.hadoop.` (`spark.hadoop.fs.azure.account.key...`) —
+propage aux deux couches. Corrigé avant que ça touche le vrai streaming
+(le mécanisme de checkpoint peut utiliser cette couche bas niveau en
+interne), pas après un échec en production.
+
+**Erreurs de manipulation en appliquant le fix** : première tentative
+dans `bronze_ingestion.py` contenait plusieurs problèmes structurels
+cumulés (bloc d'initialisation de `builder` disparu, nouvelle ligne
+placée hors du `if` utilisant une variable pas encore définie, ancienne
+ligne non supprimée en doublon, `return` final manquant, aucune
+indentation). Plutôt que corriger ligne par ligne à nouveau, fonction
+complète redonnée à remplacer intégralement. Vérification rapide et
+gratuite introduite pour la suite : `python3 -c "import ast;
+ast.parse(open('fichier.py').read())"` — détecte les erreurs de
+syntaxe/indentation en une fraction de seconde, avant de lancer un test
+Spark complet (~20-30s de démarrage à chaque fois).
+
+**Test bout-en-bout final** : `bronze_ingestion.py --once` avec Kafka
+(Event Hubs) ET Storage (ADLS Gen2) basculés ensemble en mode Azure —
+812 lignes confirmées écrites dans `abfss://bronze@stsncfdev.../sncf_raw`,
+nombre exactement cohérent avec les 812 perturbations publiées par le
+producteur la veille. Boucle complète confirmée entièrement sur Azure :
+API SNCF → Event Hubs → Spark → ADLS Gen2.
+
+**Nettoyage** : deux dossiers de test (`test_adls_gen2`,
+`test_adls_gen2_v2`) laissés dans le conteneur `bronze`, à supprimer
+manuellement via le portail Azure.
+
+**Leçon retenue** : Spark a plusieurs couches de configuration
+(`spark.conf` général vs `spark.hadoop.*` propagé à la couche Hadoop
+sous-jacente) — une clé qui fonctionne pour un usage (DataFrame
+read/write) peut ne pas atteindre un autre usage (API FileSystem bas
+niveau, mécanismes internes de streaming/checkpoint) si elle n'est pas
+préfixée correctement. Tester uniquement le chemin "heureux" peut
+masquer ce genre de lacune.

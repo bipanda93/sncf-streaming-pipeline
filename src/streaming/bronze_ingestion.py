@@ -40,25 +40,29 @@ KAFKA_CONNECTOR_PACKAGE = "org.apache.spark:spark-sql-kafka-0-10_2.13:4.1.0"
 
 def build_spark_session() -> SparkSession:
     """
-    Construit une SparkSession avec Delta Lake ET le connecteur Kafka
-    configurés.
-
-    configure_spark_with_delta_pip attache automatiquement les JARs Delta
-    en local -- sur un vrai cluster Databricks, Delta est déjà natif et
-    cette étape est transparente. Le connecteur Kafka, lui, doit être
-    ajouté explicitement via extra_packages : ce n'est pas un JAR Delta,
-    Spark ne le télécharge jamais tout seul.
+    Construit une SparkSession avec Delta Lake, Kafka ET (en mode Azure)
+    le connecteur ADLS Gen2 configurés.
     """
     builder = (
         SparkSession.builder.appName("sncf-bronze-ingestion")
         .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
         .config("spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog")
     )
+
+    packages = [KAFKA_CONNECTOR_PACKAGE]
+
+    if config.AZURE_STORAGE_ACCOUNT_NAME:
+        packages.append("org.apache.hadoop:hadoop-azure:3.4.2")
+        storage_key = config._get_secret_from_keyvault("storage-account-key")
+        builder = builder.config(
+            f"spark.hadoop.fs.azure.account.key.{config.AZURE_STORAGE_ACCOUNT_NAME}.dfs.core.windows.net",
+            storage_key,
+        )
+
     return configure_spark_with_delta_pip(
         builder,
-        extra_packages=[KAFKA_CONNECTOR_PACKAGE],
+        extra_packages=packages,
     ).getOrCreate()
-
 
 def build_kafka_read_options() -> dict:
     """

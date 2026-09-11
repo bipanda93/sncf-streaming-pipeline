@@ -50,3 +50,11 @@ resource "azurerm_key_vault_secret" "storage_connection_string" {
 
   depends_on = [azurerm_key_vault_access_policy.terraform_sp]
 }
+
+resource "azurerm_key_vault_secret" "storage_account_key" {
+  name         = "storage-account-key"
+  value        = azurerm_storage_account.sncf.primary_access_key
+  key_vault_id = azurerm_key_vault.sncf.id
+
+  depends_on = [azurerm_key_vault_access_policy.terraform_sp]
+}
