@@ -637,3 +637,19 @@ dans `incidents_2026-09-11.md` (point 7).
 
 Aucun changement de code dans ce fil — uniquement configuration GitHub
 et clarification de l'environnement local, rien à commiter.
+
+## 2026-09-11 (suite 2) — Test bout-en-bout Event Hubs réussi
+
+Après avoir débloqué le CI/CD, bascule réelle de `.env` vers Azure et
+premier vrai test de la chaîne complète. Un bug trouvé et corrigé en
+chemin : le producteur utilisait par erreur la clé de lecture d'Event
+Hubs au lieu de la clé d'écriture (les deux clés existaient depuis le
+début côté Terraform, mais `config.py` ne les distinguait pas). Une fois
+séparées, 812 perturbations publiées avec succès sur Azure, puis lues et
+écrites dans le Delta local par Spark — boucle complète confirmée en
+conditions réelles pour la première fois. Détail dans
+`incidents_2026-09-11.md` (point 8).
+
+Migration Azure réelle : Event Hubs est maintenant le seul composant
+confirmé "en usage réel" (pas juste créé) — ADLS Gen2 et AKS restent à
+faire.

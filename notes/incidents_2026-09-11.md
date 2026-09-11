@@ -197,3 +197,49 @@ façon incohérente, chercher s'il existe plusieurs mécanismes de
 chargement distincts (ici : deux fonctions Docker séparées, une seule
 avec un fichier `.env` additionnel) avant de soupçonner une erreur de
 manipulation.
+
+## 8. Test bout-en-bout réel Event Hubs — clé d'écriture confondue avec la clé de lecture
+
+**Contexte** : première bascule réelle de `.env` vers Azure
+(`KAFKA_BOOTSTRAP_SERVERS`, `KAFKA_SECURITY_PROTOCOL=SASL_SSL`), après
+tous les tests unitaires de la veille sur `config.py`.
+
+**Symptôme** : le producteur (`src/ingestion/main.py --once`) se connecte
+bien à Event Hubs (SASL_SSL établi, 804 perturbations récupérées depuis
+l'API SNCF) mais échoue à l'écriture : `KafkaException:
+TOPIC_AUTHORIZATION_FAILED`, précédé d'un warning `Topic sncf-raw
+partition count changed from 2 to 0`.
+
+**Cause racine** : `config.py` (écrit la veille) ne câblait qu'une seule
+variable `KAFKA_SASL_PASSWORD`, remplie avec le secret
+`eventhub-listen-connection-string` (droits lecture seule, `listen=true,
+send=false`) — pensé à l'origine pour Spark, qui lit. Le producteur
+partage cette même variable pour s'authentifier, mais lui a besoin
+d'écrire — d'où le refus d'Event Hubs.
+
+**Fix** : séparation en deux variables distinctes dans `config.py` —
+`KAFKA_SASL_PASSWORD` (lecture, `eventhub-listen-connection-string`,
+utilisé par Spark) et `KAFKA_SASL_PASSWORD_SEND` (écriture,
+`eventhub-connection-string`, utilisé par `build_kafka_config()` — le
+producteur). Une seule ligne changée dans `build_kafka_config()`
+(`sasl.password` pointe désormais vers la nouvelle variable).
+
+**Vérification** : après fix, 812 perturbations publiées avec succès
+(`812 perturbation(s) publiée(s) sur le topic 'sncf-raw'`), warning de
+partition disparu (même origine que l'erreur d'autorisation, pas un
+problème séparé). Puis `bronze_ingestion.py --once` confirmé fonctionnel
+en lecture : nouvelle transaction Delta (`00000000000000000252.json`)
+écrite avec succès, malgré un avertissement bénin de transition d'offset
+(`KafkaMicroBatchStream: offset was changed from 54456 to 384` — attendu,
+le checkpoint local se souvenait de l'ancien Kafka, pas d'Event Hubs ;
+absorbé sans erreur grâce à `failOnDataLoss=false` déjà en place depuis
+l'incident du 28/08).
+
+**Résultat** : boucle complète confirmée fonctionnelle en conditions
+réelles — API SNCF → Event Hubs (Azure) → Spark → Delta local.
+
+**Leçon retenue** : dès qu'un secret/clé a une portée volontairement
+restreinte (ici, lecture seule vs écriture), vérifier explicitement que
+chaque consommateur du code utilise la bonne — une seule variable de
+config partagée entre deux usages aux besoins différents est un piège
+classique, invisible tant qu'on ne teste pas les deux usages séparément.

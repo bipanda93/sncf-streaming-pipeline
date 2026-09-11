@@ -31,8 +31,10 @@ def _get_secret_from_keyvault(secret_name: str) -> str:
 
 if KAFKA_SECURITY_PROTOCOL.startswith("SASL"):
     KAFKA_SASL_PASSWORD = _get_secret_from_keyvault("eventhub-listen-connection-string")
+    KAFKA_SASL_PASSWORD_SEND = _get_secret_from_keyvault("eventhub-connection-string")
 else:
     KAFKA_SASL_PASSWORD = os.getenv("KAFKA_SASL_PASSWORD", "")
+    KAFKA_SASL_PASSWORD_SEND = os.getenv("KAFKA_SASL_PASSWORD", "")
 
 TOPIC_RAW = os.getenv("KAFKA_TOPIC_RAW", "sncf-raw")
 POLL_INTERVAL_SECONDS = int(os.getenv("POLL_INTERVAL_SECONDS", "300"))
@@ -98,7 +100,7 @@ def build_kafka_config() -> dict:
             {
                 "sasl.mechanism": KAFKA_SASL_MECHANISM or "PLAIN",
                 "sasl.username": KAFKA_SASL_USERNAME or "$ConnectionString",
-                "sasl.password": KAFKA_SASL_PASSWORD,
+                "sasl.password": KAFKA_SASL_PASSWORD_SEND,
             }
         )
     return cfg
