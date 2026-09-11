@@ -616,3 +616,24 @@ Hubs en changeant uniquement `.env`, sans avoir touché
 Reste ouvert : test bout-en-bout réel (bascule `.env`, vérifier qu'un
 message atteint vraiment Event Hubs), dérive Terraform cosmétique sur
 `upgrade_settings` (AKS), réponse école sur le budget.
+
+## 2026-09-11 (suite) — CI/CD Terraform débloquée
+
+Après l'intégration Key Vault du matin, un email GitHub a signalé
+l'échec du pipeline CI/CD (`deploy.yml`) sur `terraform-plan` — pipeline
+existant découvert à cette occasion, bien conçu (plan automatique,
+apply/destroy strictement manuels). Cause initiale simple (secrets GitHub
+Actions jamais créés) compliquée par une série de faux départs :
+texte de commande collé au lieu d'une valeur, plusieurs `pbcopy`
+enchaînés sans coller entre chaque. La vraie cause racine s'est révélée
+plus intéressante : `terraform`, comme `az`, est un wrapper Docker défini
+dans `.zshrc` — mais lui charge en plus un fichier `.env.terraform`
+séparé (`infra/terraform/`, ignoré par Git), jamais consulté jusqu'ici
+puisque `.zshrc` seul avait toujours suffi pour `az`. Une fois cette
+double source de vérité identifiée, alignement des 4 secrets GitHub sur
+ce fichier, avec vérification de fraîcheur via un `terraform plan` local
+avant de propager `ARM_CLIENT_SECRET`. CI confirmée verte. Détail complet
+dans `incidents_2026-09-11.md` (point 7).
+
+Aucun changement de code dans ce fil — uniquement configuration GitHub
+et clarification de l'environnement local, rien à commiter.

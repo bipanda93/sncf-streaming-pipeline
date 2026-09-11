@@ -127,3 +127,73 @@ Hubs récupéré (169 caractères), `build_kafka_config()` (producteur) ET
 Azure sans avoir eu besoin de toucher `bronze_ingestion.py` — la
 factorisation déjà en place ("jamais dupliqué", héritée d'une session
 antérieure) a tenu son rôle.
+
+## 7. CI/CD Terraform bloquée — secrets GitHub Actions absents, puis mal renseignés, puis désynchronisés
+
+**Déclencheur** : email GitHub signalant l'échec de `terraform-plan` sur
+le workflow `deploy.yml` (découvert à cette occasion — pipeline CI/CD déjà
+existant dans le repo, plan automatique sur chaque push touchant
+`infra/terraform/`, apply/destroy strictement manuels via
+`workflow_dispatch` + protection d'environnement `production`).
+
+**Étape 1 — secrets absents** : `Please run 'az login' to setup account`
+dans les logs CI, révélant qu'aucun des 4 secrets `ARM_*` requis par le
+workflow n'était configuré côté GitHub ("This repository has no
+secrets"). Créés une première fois — mais le run suivant a montré une
+erreur d'un tout autre type (voir étape 2), révélant que la création
+n'avait en réalité rien enregistré (bouton de validation jamais atteint).
+
+**Étape 2 — texte de commande collé au lieu de la valeur** :
+`AADSTS900023: Specified tenant identifier 'echo -n "$arm_tenant_id" |
+pbcopy' is neither a valid DNS name...` — le texte littéral d'une
+commande `pbcopy` s'est retrouvé collé dans le champ valeur du secret
+GitHub, signe qu'un clic sur une icône "copier" (au lieu d'une exécution
+réelle dans le terminal suivie d'un collage du résultat) avait copié le
+texte de la commande plutôt que son résultat.
+
+**Étape 3 — plusieurs `pbcopy` lancés d'affilée, sans coller entre
+chaque** : en corrigeant l'étape 2, les 4 commandes `pbcopy` (une par
+secret) ont été exécutées à la suite dans le terminal, sans revenir sur
+GitHub coller après chacune. Comme chaque `pbcopy` écrase le presse-papier
+précédent, seule la dernière valeur (`ARM_SUBSCRIPTION_ID`) était encore
+récupérable — les 3 autres n'avaient jamais atteint GitHub. Protocole
+strict établi pour la suite : une commande, un collage, une validation,
+confirmation explicite avant de passer à la suivante.
+
+**Étape 4 — presse-papier vide, cause racine réelle** : même en suivant
+le protocole strict, `ARM_TENANT_ID` restait faux côté CI. Vérification
+du presse-papier via `pbpaste | wc -c` → `0`. La variable
+`$ARM_TENANT_ID` était en réalité **vide dans cette session de
+terminal** — pas un problème de méthode de copier-coller, un problème de
+variable jamais chargée.
+
+**Découverte de la cause racine** : `az` (déjà connu, wrapper Docker
+défini dans `.zshrc`) n'était pas le seul — `terraform` l'est également,
+et sa fonction charge en plus un fichier `.env.terraform` local
+(`[ -f ./.env.terraform ] && source ./.env.terraform`), testé
+relativement au dossier courant. Ce fichier — pas `.zshrc` — est la
+vraie source des 4 variables `ARM_*` pour tout usage local de Terraform.
+Il vit dans `infra/terraform/` (jamais à la racine du projet),
+correctement ignoré par Git. Explique pourquoi `env | grep ARM_` avait
+fonctionné les jours précédents (session avec `terraform` déjà appelé au
+moins une fois) mais pas dans une session fraîche comme celle utilisée
+pour configurer les secrets GitHub.
+
+**Vérification de fraîcheur avant de propager** : avant de recopier
+`ARM_CLIENT_SECRET` depuis `.env.terraform` vers GitHub, un `terraform
+plan` local (avec la valeur du fichier fraîchement chargée) a servi de
+test définitif — un secret périmé aurait échoué avec une erreur
+d'authentification explicite. Succès confirmé (seul changement dans le
+plan : la dérive cosmétique déjà connue sur `upgrade_settings` d'AKS),
+donc valeur à jour, propagée en confiance.
+
+**Résultat** : les 4 secrets GitHub Actions et le fichier
+`.env.terraform` local utilisent maintenant la même source de vérité.
+`terraform-plan` confirmé vert en CI (15s, toutes les étapes passées).
+
+**Leçon retenue** : quand un secret censé être partagé entre plusieurs
+usages (ici : session shell interactive et pipeline CI) se comporte de
+façon incohérente, chercher s'il existe plusieurs mécanismes de
+chargement distincts (ici : deux fonctions Docker séparées, une seule
+avec un fichier `.env` additionnel) avant de soupçonner une erreur de
+manipulation.
