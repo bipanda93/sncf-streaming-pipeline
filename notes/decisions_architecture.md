@@ -513,3 +513,32 @@ représenter une autre, même temporairement.
 qu'un service applicatif (ex. dbt) et un outil d'infra (Terraform) doivent
 tous deux accéder à un même coffre de secrets, quel que soit le fournisseur
 cloud.
+
+## 2026-09-11 — Outillage local : deux wrappers Docker, deux sources de credentials (référence, pas une décision de ce jour)
+
+**Contexte** : découvert en dépannant le CI/CD, pas décidé aujourd'hui —
+architecture déjà en place depuis une session antérieure jamais
+documentée. Capturé ici pour ne pas re-perdre de temps si la confusion
+revient.
+
+**État actuel** :
+- `az` (fonction `.zshrc`) → conteneur Docker `mcr.microsoft.com/azure-cli`,
+  session persistée via `~/.azure` monté en volume — une fois connecté,
+  reste valide entre les invocations.
+- `terraform` (fonction `.zshrc`) → conteneur Docker `hashicorp/terraform:1.9`,
+  credentials Azure (`ARM_*`) injectés via un fichier `.env.terraform`
+  local (`infra/terraform/`, ignoré par Git), rechargé à chaque invocation
+  si présent dans le dossier courant.
+
+**Pourquoi ça a semé la confusion le 11/09** : les deux fonctions
+paraissent symétriques (même fichier, même principe Docker) mais
+reposent sur deux mécanismes de credentials différents — l'un sur une
+session persistée, l'autre sur un fichier `.env` rechargé à chaque appel
+et sensible au dossier courant. `env | grep ARM_` ne reflète donc que ce
+qu'un appel précédent de `terraform` a chargé dans la session shell en
+cours, pas une vérité permanente ni globale.
+
+**Portée** : à garder en tête pour Leclerc si un outil similaire (ex. dbt
+conteneurisé) est mis en place — préférer un mécanisme de credentials
+unique et cohérent entre tous les outils Dockerisés locaux plutôt que de
+répliquer ce mélange.
