@@ -26,8 +26,8 @@ resource "azurerm_dashboard_grafana" "sncf" {
   resource_group_name = azurerm_resource_group.sncf.name
   location            = azurerm_resource_group.sncf.location
 
-  sku = "Essential"
-  grafana_major_version = 11
+  sku = "Standard"
+  grafana_major_version = 12
 
   api_key_enabled                   = true
   deterministic_outbound_ip_enabled = false

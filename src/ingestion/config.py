@@ -14,7 +14,25 @@ KAFKA_BOOTSTRAP_SERVERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9094")
 KAFKA_SECURITY_PROTOCOL = os.getenv("KAFKA_SECURITY_PROTOCOL", "PLAINTEXT")
 KAFKA_SASL_MECHANISM = os.getenv("KAFKA_SASL_MECHANISM", "")
 KAFKA_SASL_USERNAME = os.getenv("KAFKA_SASL_USERNAME", "")
-KAFKA_SASL_PASSWORD = os.getenv("KAFKA_SASL_PASSWORD", "")
+def _get_secret_from_keyvault(secret_name: str) -> str:
+    """
+    Récupère un secret depuis Azure Key Vault (authentification via
+    DefaultAzureCredential -- réutilise la session `az login` locale,
+    ou l'identité managée une fois déployé sur AKS).
+    """
+    from azure.identity import DefaultAzureCredential
+    from azure.keyvault.secrets import SecretClient
+
+    vault_name = os.getenv("AZURE_KEY_VAULT_NAME", "kv-sncf-dev")
+    vault_uri = f"https://{vault_name}.vault.azure.net"
+    credential = DefaultAzureCredential(process_timeout=30)
+    client = SecretClient(vault_url=vault_uri, credential=credential)
+    return client.get_secret(secret_name).value
+
+if KAFKA_SECURITY_PROTOCOL.startswith("SASL"):
+    KAFKA_SASL_PASSWORD = _get_secret_from_keyvault("eventhub-listen-connection-string")
+else:
+    KAFKA_SASL_PASSWORD = os.getenv("KAFKA_SASL_PASSWORD", "")
 
 TOPIC_RAW = os.getenv("KAFKA_TOPIC_RAW", "sncf-raw")
 POLL_INTERVAL_SECONDS = int(os.getenv("POLL_INTERVAL_SECONDS", "300"))

@@ -11,7 +11,7 @@ resource "azurerm_eventhub_namespace" "sncf" {
   # Basic -- suffisant pour ce projet (pas besoin de Capture, de réplication
   # géographique, ni de rétention étendue proposées par Standard/Premium).
   # Coût le plus faible des trois paliers.
-  sku      = "Basic"
+  sku      = "Standard"
   capacity = 1
 
   tags = local.common_tags
@@ -42,6 +42,25 @@ resource "azurerm_eventhub_authorization_rule" "sncf_raw_send" {
   listen = false
   send   = true
   manage = false
+}
+
+resource "azurerm_eventhub_authorization_rule" "sncf_raw_listen" {
+  name                = "sncf-raw-listen"
+  namespace_name      = azurerm_eventhub_namespace.sncf.name
+  eventhub_name       = azurerm_eventhub.sncf_raw.name
+  resource_group_name = azurerm_resource_group.sncf.name
+
+  listen = true
+  send   = false
+  manage = false
+}
+
+resource "azurerm_key_vault_secret" "eventhub_listen_connection_string" {
+  name         = "eventhub-listen-connection-string"
+  value        = azurerm_eventhub_authorization_rule.sncf_raw_listen.primary_connection_string
+  key_vault_id = azurerm_key_vault.sncf.id
+
+  depends_on = [azurerm_key_vault_access_policy.terraform_sp]
 }
 
 # La chaîne de connexion Event Hubs part dans Key Vault, comme pour ADLS

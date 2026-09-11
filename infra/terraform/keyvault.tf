@@ -29,3 +29,11 @@ resource "azurerm_key_vault_access_policy" "terraform_sp" {
 
   secret_permissions = ["Get", "List", "Set", "Delete", "Purge"]
 }
+
+resource "azurerm_key_vault_access_policy" "franck_read" {
+  key_vault_id = azurerm_key_vault.sncf.id
+  tenant_id    = data.azurerm_client_config.current.tenant_id
+  object_id    = "1471379d-4338-4c56-9794-4ad31d17307f"
+
+  secret_permissions = ["Get"]
+}
