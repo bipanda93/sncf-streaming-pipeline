@@ -580,3 +580,39 @@ dans `incidents_2026-09-08.md`.
 Reste ouvert : écart 627 vs 419 sur "Perturbations Journalière" (pas
 bloquant, à vérifier avant la soutenance), coquille possible sur l'onglet
 "Type de Pertubations".
+
+## 2026-09-10 — Phase 2 lancée : premier déploiement Azure réel
+
+Décision de passer directement en production sur l'abonnement Azure
+rattaché à l'école (IEF2I) sans attendre la confirmation du budget exact
+— réponse école en attente. Fix `sku` Event Hubs (Basic → Standard,
+bloquant pour Kafka), puis premier `terraform apply` réel du projet : 30
+ressources créées (AKS, Databricks, Event Hubs, Storage/ADLS Gen2, Key
+Vault, VNet, Grafana, Monitor Workspace), après résolution de 3 blocages
+en cascade (providers non enregistrés, sku et version Grafana rejetés par
+l'API). Règle d'accès `listen` ajoutée côté Event Hubs. Détail complet
+dans `incidents_2026-09-10.md`.
+
+## 2026-09-11 — Accès Key Vault résolu, incident de sécurité, intégration code complète
+
+Bascule de `azure-cli` (Docker via fonction shell) vers un binaire natif
+(pip, après un détour raté par Homebrew qui compilait depuis les sources).
+Ça a révélé la vraie cause de l'accès Key Vault bloqué : Terraform
+s'authentifie via un Service Principal dédié (`ARM_*`), distinct de
+l'identité personnelle — la policy d'accès a été corrigée avec deux blocs
+séparés au lieu d'un seul écrasé (erreur de la veille). En chemin,
+`ARM_CLIENT_SECRET` exposé par erreur en clair dans la conversation,
+roté à deux reprises avant qu'une méthode sûre (aucun affichage à l'écran)
+soit mise en place.
+
+Intégration complète de la lecture Key Vault dans `config.py`
+(`KAFKA_SASL_PASSWORD`, mode dynamique choisi en cohérence avec la
+décision de la veille) : un bug de portée de variable Python et un
+timeout `AzureCliCredential` corrigés en chemin. Confirmé fonctionnel de
+bout en bout — producteur et Spark basculent tous les deux vers Event
+Hubs en changeant uniquement `.env`, sans avoir touché
+`bronze_ingestion.py`. Détail complet dans `incidents_2026-09-11.md`.
+
+Reste ouvert : test bout-en-bout réel (bascule `.env`, vérifier qu'un
+message atteint vraiment Event Hubs), dérive Terraform cosmétique sur
+`upgrade_settings` (AKS), réponse école sur le budget.

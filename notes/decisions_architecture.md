@@ -488,3 +488,28 @@ run) vu le temps disponible avant la soutenance.
 **Portée** : ce pattern (bind mount pour tout conteneur custom non-root qui
 a besoin d'écrire dans un volume) est directement réutilisable pour Leclerc,
 en particulier pour les conteneurs Airbyte OSS auto-hébergés.
+
+## 2026-09-11 — Une policy Key Vault par identité, jamais partagée
+
+**Contexte** : Key Vault en mode Access Policies (pas RBAC) n'autorise
+qu'une seule entrée par identité. Le projet a deux identités distinctes
+qui doivent y accéder : le Service Principal Terraform (`ARM_*`, gère les
+secrets) et l'identité personnelle de Franck en développement local (lit
+seulement).
+
+**Erreur commise puis corrigée** : modifier la policy existante du
+Service Principal pour y mettre une autre identité, au lieu de créer un
+second bloc — a failli retirer l'accès de gestion des secrets au
+Service Principal réel.
+
+**Règle retenue** : chaque identité qui accède à Key Vault a son propre
+bloc `azurerm_key_vault_access_policy`, avec les permissions minimales
+réellement nécessaires (`Get` seul pour une lecture applicative, jamais
+les permissions de gestion `Set`/`Delete`/`Purge` réservées à l'outil qui
+provisionne). Ne jamais réutiliser/écraser le bloc d'une identité pour en
+représenter une autre, même temporairement.
+
+**Portée** : directement réutilisable pour Leclerc — même logique dès
+qu'un service applicatif (ex. dbt) et un outil d'infra (Terraform) doivent
+tous deux accéder à un même coffre de secrets, quel que soit le fournisseur
+cloud.
