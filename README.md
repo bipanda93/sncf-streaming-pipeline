@@ -16,7 +16,7 @@ Ce projet ingère en continu les données de perturbations du réseau SNCF (API 
 - 17 778 perturbations distinctes après dédoublonnage (Silver)
 - 21 814 lignes d'historique de régularité (2013-2026)
 - 6 DAGs Airflow en production
-- 9 modules Terraform, 26 ressources Azure
+- 9 modules Terraform, 33 ressources Azure (déploiement continu depuis le 10/09)
 
 ## Architecture
 
@@ -63,6 +63,8 @@ Modélisation DAX avancée, notamment le pattern TREATAS pour filtrer entre tabl
 - Conflits de transaction Delta Lake liés a la concurrence des DAGs
 - Audit qualité de données : détection d'un mélange de 3 granularités géographiques dans l'historique de ponctualité, quantification d'un risque de double comptage (~18% sur l'échantillon testé), corrigé par filtrage explicite
 - Incident de sécurité : exposition accidentelle d'un secret Azure dans un commit, révoqué immédiatement et documenté
+- Migration Kafka vers Azure Event Hubs : clé d'authentification en écriture confondue avec la clé en lecture seule (erreur TOPIC_AUTHORIZATION_FAILED), diagnostiquée et corrigée en séparant les deux usages dans la configuration
+- CI/CD Terraform : deux outils locaux conteneurisés (Azure CLI et Terraform) reposant sur des mécanismes de credentials distincts, source d'une confusion de diagnostic résolue en clarifiant l'architecture d'outillage locale
 
 Détail complet de chaque incident : dossier notes/
 
@@ -72,7 +74,8 @@ Chaque choix structurant est justifié et tracé dans notes/decisions_architectu
 
 ## Limites connues
 
-- Infrastructure Azure testée en cycles courts (apply/destroy), pas encore en déploiement continu prolongé
+- AKS et Databricks : infrastructure créée et déployée en continu, mais sans charge de travail active pour l'instant (Event Hubs, lui, est utilisé et testé en conditions réelles de bout en bout)
+- ADLS Gen2 créé côté infrastructure, migration du code applicatif encore à faire (le stockage Delta local reste la source active)
 - Isolation Forest pas encore entraîné (attend l'accumulation d'historique)
 - Certains sous-réseaux TER historiques nécessitent encore une correspondance fine vers les régions actuelles
 
