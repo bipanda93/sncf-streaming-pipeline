@@ -676,3 +676,33 @@ complet dans `incidents_2026-09-11.md` (point 9).
 Les deux composants Azure prévus pour cette phase (Event Hubs, ADLS
 Gen2) sont maintenant tous les deux validés en conditions réelles. Seul
 AKS (Airflow) reste à faire pour boucler la migration Azure complète.
+
+## 2026-09-12 — Airflow déployé et fonctionnel sur AKS
+
+Décision de finir la Phase 2 en entier (AKS inclus), le budget Azure
+restant largement sous contrôle (configuration d'une alerte à 50€ avant
+de se lancer). Correction d'un bug IAM latent avant même de commencer
+(role assignments AKS pointant vers la mauvaise identité — plan de
+contrôle du cluster au lieu des nœuds), puis mise en place complète :
+registre Container Registry, image Docker (DAGs + code source),
+installation Helm (contournement du même piège Homebrew que pour
+azure-cli), chart Airflow avec KubernetesExecutor.
+
+Trois incidents non triviaux résolus en chemin : les logs de tâches
+Kubernetes non persistés par défaut (résolu après plusieurs tentatives
+— StatefulSet immutable, PVC orphelines, puis la vraie cause :
+`ReadWriteMany` nécessite la storageclass `azurefile`, pas celle par
+défaut), puis un oubli simple mais bloquant (le code source Python
+jamais copié dans l'image, seuls les DAGs l'étaient). Résultat : run
+complet du DAG réussi, déclenché automatiquement par la programmation
+horaire — API SNCF → Event Hubs → Spark → ADLS Gen2, entièrement sur
+Azure, orchestré par Kubernetes. Détail complet dans
+`incidents_2026-09-12.md`.
+
+**Les 3 composants prévus pour la Phase 2 (Event Hubs, ADLS Gen2, AKS)
+sont désormais tous validés en conditions réelles.** Reste : Databricks
+et Grafana (créés, jamais utilisés — pas prévus dans le scope initial),
+dette technique `scope_value`, et la question de quand faire le
+`terraform destroy` pour limiter les coûts avant la soutenance (penser
+à `az keyvault purge --name kv-sncf-dev` après, sans quoi le nom reste
+réservé 90 jours).

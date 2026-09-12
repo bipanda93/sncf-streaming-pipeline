@@ -25,14 +25,23 @@ resource "azurerm_role_assignment" "databricks_to_storage" {
   principal_id         = azurerm_databricks_access_connector.sncf.identity[0].principal_id
 }
 
-resource "azurerm_role_assignment" "aks_to_keyvault" {
-  scope                = azurerm_key_vault.sncf.id
-  role_definition_name = "Key Vault Secrets User"
-  principal_id         = azurerm_kubernetes_cluster.sncf.identity[0].principal_id
+resource "azurerm_key_vault_access_policy" "aks_read" {
+  key_vault_id = azurerm_key_vault.sncf.id
+  tenant_id    = data.azurerm_client_config.current.tenant_id
+  object_id    = azurerm_kubernetes_cluster.sncf.kubelet_identity[0].object_id
+
+  secret_permissions = ["Get"]
 }
 
 resource "azurerm_role_assignment" "aks_to_eventhub" {
   scope                = azurerm_eventhub_namespace.sncf.id
   role_definition_name = "Azure Event Hubs Data Owner"
-  principal_id         = azurerm_kubernetes_cluster.sncf.identity[0].principal_id
+  principal_id         = azurerm_kubernetes_cluster.sncf.kubelet_identity[0].object_id
+}
+
+resource "azurerm_role_assignment" "aks_to_acr" {
+  scope                            = azurerm_container_registry.sncf.id
+  role_definition_name             = "AcrPull"
+  principal_id                     = azurerm_kubernetes_cluster.sncf.kubelet_identity[0].object_id
+  skip_service_principal_aad_check = true
 }

@@ -542,3 +542,30 @@ cours, pas une vérité permanente ni globale.
 conteneurisé) est mis en place — préférer un mécanisme de credentials
 unique et cohérent entre tous les outils Dockerisés locaux plutôt que de
 répliquer ce mélange.
+
+## 2026-09-12 — Choix d'exécuteur et de distribution des DAGs (Helm Airflow)
+
+**Executor : `KubernetesExecutor` plutôt que `CeleryExecutor`** (défaut
+du chart). CeleryExecutor déploie une architecture distribuée (workers
+permanents + Redis comme file d'attente) — pertinent pour une charge de
+travail soutenue et variable, surdimensionné pour un cluster à 1 nœud
+et un volume de DAGs modeste. KubernetesExecutor lance un pod éphémère
+par tâche, à la demande — plus proche en esprit du mode `standalone`
+local, moins de pièces à maintenir.
+
+**Distribution des DAGs : intégrés à l'image Docker plutôt que
+git-sync.** Le chart propose nativement un sidecar `git-sync` qui
+synchronise les DAGs depuis GitHub en continu — pertinent pour une
+équipe où les DAGs évoluent fréquemment. Les 6 DAGs de ce projet sont
+stables d'ici la soutenance ; le principal scénario de changement (un
+bug applicatif à corriger) se résout par un cycle build/push/rollout de
+quelques minutes, pas par une synchronisation continue. Choix
+délibérément plus simple, cohérent avec le stade du projet (portfolio +
+mémoire, pas une équipe en production).
+
+**Portée** : le pattern identité (`kubelet_identity` pour tout accès
+Azure depuis un pod, jamais `identity` du cluster) et le pattern
+stockage (`ReadWriteMany` nécessite une storageclass de type fichier
+comme `azurefile`, jamais le disque `default`) sont directement
+réutilisables pour tout futur déploiement Kubernetes sur Azure,
+indépendamment de ce projet.

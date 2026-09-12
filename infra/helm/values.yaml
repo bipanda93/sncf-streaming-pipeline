@@ -1,0 +1,21 @@
+executor: "KubernetesExecutor"
+
+images:
+  airflow:
+    repository: acrsncfdev.azurecr.io/airflow-sncf
+    tag: latest
+    pullPolicy: Always
+
+env:
+  - name: KAFKA_BOOTSTRAP_SERVERS
+    value: "evhns-sncf-dev.servicebus.windows.net:9093"
+  - name: KAFKA_SECURITY_PROTOCOL
+    value: "SASL_SSL"
+  - name: AZURE_STORAGE_ACCOUNT_NAME
+    value: "stsncfdev"
+
+logs:
+  persistence:
+    enabled: true
+    size: 1Gi
+    storageClassName: azurefile

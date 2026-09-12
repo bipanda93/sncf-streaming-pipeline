@@ -12,5 +12,8 @@ ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
 USER airflow
 
 COPY requirements.txt /tmp/requirements.txt
+
 RUN pip install --no-cache-dir --no-warn-script-location \
     -r /tmp/requirements.txt apache-airflow-providers-standard
+COPY dags/ /opt/airflow/dags/
+COPY src/ /opt/airflow/project/src/
