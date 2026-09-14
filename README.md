@@ -15,8 +15,8 @@ Ce projet ingère en continu les données de perturbations du réseau SNCF (API 
 - 166 917 événements ingérés en continu (Bronze)
 - 17 778 perturbations distinctes après dédoublonnage (Silver)
 - 21 814 lignes d'historique de régularité (2013-2026)
-- 6 DAGs Airflow en production
-- 9 modules Terraform, 33 ressources Azure (déploiement continu depuis le 10/09)
+- 6 DAGs Airflow en production, orchestrés sur Kubernetes (AKS)
+- 9 modules Terraform, 38 ressources Azure (déploiement continu depuis le 10/09)
 
 ## Architecture
 
@@ -30,15 +30,16 @@ Architecture medallion complète, avec une table de pont (bridge table) pour gé
 |---|---|
 | Ingestion | Kafka, Python |
 | Traitement | PySpark, Delta Lake |
-| Orchestration | Apache Airflow (6 DAGs) |
-| Infrastructure | Terraform, Azure (Event Hubs, Databricks, AKS, ADLS Gen2) |
+| Orchestration | Apache Airflow (6 DAGs), déployé sur AKS via Helm (KubernetesExecutor) |
+| Infrastructure | Terraform, Azure (Event Hubs, Databricks, AKS, ADLS Gen2, Container Registry) |
+| Monitoring | Prometheus + Grafana (kube-prometheus-stack, local au cluster) |
 | Restitution | Power BI (architecture double : Fabric Direct Lake + Desktop Import) |
 | IA | Isolation Forest (détection d'anomalies), Claude API (enrichissement) |
 | CI/CD | GitHub Actions |
 
 ## Orchestration Airflow
 
-6 DAGs en production :
+6 DAGs en production, orchestrés directement sur Kubernetes (AKS) :
 - ingestion_bronze_temps_reel : ingestion Kafka vers Bronze, horaire
 - silver_gold_temps_reel : Silver vers Gold vers export Power BI, toutes les 4h
 - historique_mensuel : chargement de l'historique de régularité
@@ -65,17 +66,19 @@ Modélisation DAX avancée, notamment le pattern TREATAS pour filtrer entre tabl
 - Incident de sécurité : exposition accidentelle d'un secret Azure dans un commit, révoqué immédiatement et documenté
 - Migration Kafka vers Azure Event Hubs : clé d'authentification en écriture confondue avec la clé en lecture seule (erreur TOPIC_AUTHORIZATION_FAILED), diagnostiquée et corrigée en séparant les deux usages dans la configuration
 - CI/CD Terraform : deux outils locaux conteneurisés (Azure CLI et Terraform) reposant sur des mécanismes de credentials distincts, source d'une confusion de diagnostic résolue en clarifiant l'architecture d'outillage locale
+- Déploiement Airflow sur Kubernetes (AKS) : identités managées mal ciblées (identité du plan de contrôle du cluster au lieu de celle des nœuds), accès Key Vault corrigé en conséquence ; volumes de logs persistants bloqués par une classe de stockage incompatible (ReadWriteMany), résolu en ciblant explicitement la classe adaptée
+- Monitoring Kubernetes : crashs de pod diagnostiqués à tort comme un problème mémoire, cause réelle identifiée via l'historique des événements Kubernetes (contrôles de santé trop stricts pour un nœud sous contention CPU)
 
 Détail complet de chaque incident : dossier notes/
 
 ## Décisions d'architecture documentées
 
-Chaque choix structurant est justifié et tracé dans notes/decisions_architecture.md, notamment le choix d'une architecture double Power BI, l'usage de tables de pont plutôt qu'un schéma en étoile classique, et le choix de TREATAS plutôt qu'une relation bidirectionnelle en DAX.
+Chaque choix structurant est justifié et tracé dans notes/decisions_architecture.md, notamment le choix d'une architecture double Power BI, l'usage de tables de pont plutôt qu'un schéma en étoile classique, le choix de TREATAS plutôt qu'une relation bidirectionnelle en DAX, et les choix d'architecture Kubernetes (exécuteur, distribution des DAGs, gestion des identités Azure).
 
 ## Limites connues
 
-- AKS et Databricks : infrastructure créée et déployée en continu, mais sans charge de travail active pour l'instant (Event Hubs, lui, est utilisé et testé en conditions réelles de bout en bout)
-- ADLS Gen2 créé côté infrastructure, migration du code applicatif encore à faire (le stockage Delta local reste la source active)
+- Databricks : infrastructure créée (workspace, connecteur d'accès), mais jamais mise en service — accès bloqué, probable restriction de consentement au niveau du tenant Azure de l'école
+- Monitoring Azure Managed Grafana (natif Azure) : accessible mais sans métriques AKS en direct, lien complet non implémenté — supplanté par un monitoring local (Prometheus + Grafana sur AKS), pleinement fonctionnel
 - Isolation Forest pas encore entraîné (attend l'accumulation d'historique)
 - Certains sous-réseaux TER historiques nécessitent encore une correspondance fine vers les régions actuelles
 
