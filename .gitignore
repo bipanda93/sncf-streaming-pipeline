@@ -9,3 +9,5 @@ data/
 .env.backup
 .env.backup
 .env.*
+.claude/
+.agents/
