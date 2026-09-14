@@ -9,9 +9,10 @@
 # internes, distincte du VNet (10.0.0.0/16) pour éviter tout chevauchement.
 #
 # monitor_metrics : active la collecte Prometheus managée (voir
-# monitoring.tf). Point de moindre certitude sur le lien exact
-# AKS<->Monitor Workspace au moment de l'écriture -- à vérifier en premier
-# si validate/plan échoue sur ce bloc précis.
+# monitoring.tf). CONFIRMÉ le 12/09 (voir notes/incidents_2026-09-12.md) :
+# ce bloc seul ne suffit pas à lier le cluster à un Monitor Workspace
+# précis -- nécessiterait une ressource distincte (association de Data
+# Collection Rule), non implémentée. Laissé vide intentionnellement.
 
 resource "azurerm_kubernetes_cluster" "sncf" {
   name                = "aks-sncf-${var.environment}"

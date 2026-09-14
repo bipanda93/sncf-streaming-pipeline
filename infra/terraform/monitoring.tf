@@ -48,6 +48,18 @@ resource "azurerm_dashboard_grafana" "sncf" {
 # rôle, Grafana afficherait une source de données connectée mais vide.
 resource "azurerm_role_assignment" "grafana_to_monitor_workspace" {
   scope                = azurerm_monitor_workspace.sncf.id
-  role_definition_name = "Monitoring Reader"
+  role_definition_name = "Monitoring Data Reader"
   principal_id         = azurerm_dashboard_grafana.sncf.identity[0].principal_id
+}
+
+# Autorise l'utilisateur personnel à se connecter à l'interface Grafana --
+# distinct du rôle grafana_to_monitor_workspace ci-dessus (celui-là
+# autorise Grafana à LIRE les métriques, celui-ci autorise un humain à
+# OUVRIR l'interface). "Editor" plutôt que "Admin" : suffisant pour créer
+# des dashboards et gérer des sources de données, cohérent avec le
+# principe de moindre privilège déjà appliqué ailleurs sur ce projet.
+resource "azurerm_role_assignment" "franck_grafana_editor" {
+  scope                = azurerm_dashboard_grafana.sncf.id
+  role_definition_name = "Grafana Editor"
+  principal_id          = "1471379d-4338-4c56-9794-4ad31d17307f"
 }

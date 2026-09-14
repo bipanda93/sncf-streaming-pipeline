@@ -9,9 +9,11 @@ resource "azurerm_databricks_workspace" "sncf" {
   resource_group_name = azurerm_resource_group.sncf.name
   location            = azurerm_resource_group.sncf.location
 
-  # Standard -- suffisant pour ce projet (pas besoin des fonctionnalités
-  # Premium comme le contrôle d'accès fin par table, qu'Unity Catalog
-  # apporte déjà indépendamment du SKU workspace).
+  # Premium -- obligatoire, pas un choix : Azure a retiré le SKU Standard
+  # (confirmé le 12/09, erreur "DatabricksStandardSkuNotSupported").
+  # Implique un coût DBU plus élevé qu'anticipé -- raison de plus pour
+  # garder ce test le plus court possible et détruire le cluster
+  # immédiatement après validation.
   sku = "premium"
 
   # Injection dans notre VNet plutôt que dans un réseau managé par Azure --
