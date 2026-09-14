@@ -1,0 +1,39 @@
+alertmanager:
+  enabled: false
+
+grafana:
+  enabled: true
+  resources:
+    requests:
+      cpu: 50m
+      memory: 200Mi
+    limits:
+      cpu: 300m
+      memory: 512Mi
+  readinessProbe:
+    httpGet:
+      path: /api/health
+      port: 3000
+    initialDelaySeconds: 30
+    timeoutSeconds: 15
+    periodSeconds: 15
+    failureThreshold: 8
+  livenessProbe:
+    httpGet:
+      path: /api/health
+      port: 3000
+    initialDelaySeconds: 90
+    timeoutSeconds: 15
+    periodSeconds: 20
+    failureThreshold: 10
+
+prometheus:
+  prometheusSpec:
+    resources:
+      requests:
+        cpu: 100m
+        memory: 512Mi
+      limits:
+        cpu: 300m
+        memory: 1Gi
+    retention: 3d

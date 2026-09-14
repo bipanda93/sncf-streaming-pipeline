@@ -153,3 +153,58 @@ pas juste que l'infrastructure existe.
 
 **Les 3 composants de la Phase 2 (Event Hubs, ADLS Gen2, AKS) sont
 maintenant tous validés en conditions réelles.**
+
+## 12. Monitoring local (kube-prometheus-stack) — abandon de l'approche Azure, cause racine mal diagnostiquée puis corrigée
+
+**Décision du 14/09** : plutôt que de continuer à chercher la bonne
+ressource Terraform pour lier `monitor_metrics` (AKS) à un Monitor
+Workspace Azure précis (point 10, jamais résolu), installation de
+Prometheus et Grafana **directement dans le cluster** via le chart
+`kube-prometheus-stack` — élimine complètement la dépendance aux rôles
+IAM Azure (source des blocages des deux jours précédents).
+
+**Premier blocage — ressources insuffisantes** : le pod Prometheus reste
+`Pending`, `kubectl describe` confirme `Insufficient cpu`. Le nœud
+unique (2 vCPU) héberge déjà 6 pods Airflow. Fix : réduction des
+`requests` CPU (Prometheus 200m→100m, Grafana 100m→50m). `helm upgrade`
+fonctionne ici en place (contrairement au `StatefulSet` Airflow du
+12/09) — Prometheus passe à `Running`.
+
+**Deuxième blocage — mauvais diagnostic initial, corrigé par les
+événements Kubernetes** : le pod Grafana redémarre en boucle (`exit code
+137`, SIGKILL). Hypothèse immédiate : dépassement mémoire (`kubectl top
+pod` montrait 386-399Mi, proche/au-dessus des limites fixées) — augmentée
+plusieurs fois sans effet, le pod continue de crasher. `kubectl get
+events --sort-by='.lastTimestamp' | grep -i grafana` révèle la vraie
+cause, absente de toute hypothèse mémoire : **jamais un seul
+`OOMKilled`** dans tout l'historique, mais un motif répété identique sur
+les 3 générations de pods : `Liveness probe failed: context deadline
+exceeded` puis `Container grafana failed liveness probe, will be
+restarted`. Le vrai problème était une contention CPU (delai de réponse
+au health check > 10s), pas la mémoire.
+
+**Fix définitif** : CPU desserré (limite 300m au lieu de 150m) **et**
+probes considérablement assouplies (`readinessProbe` : délai initial
+30s, timeout 15s, période 15s, 8 échecs tolérés ; `livenessProbe` :
+délai initial 90s, timeout 15s, période 20s, 10 échecs tolérés) — les
+valeurs par défaut du chart (délais courts, peu d'échecs tolérés) ne
+conviennent pas à un nœud aussi chargé. Stable après ce changement
+(`RESTARTS: 0`).
+
+**Confirmation finale, avec de vraies données** : dashboard préconstruit
+"Kubernetes / Compute Resources / Cluster" dans Grafana affiche
+`CPU Requests 94.1%` sur le cluster entier, namespace `airflow` seul à
+**98.3%** de ses requêtes CPU — confirme objectivement, chiffres à
+l'appui, que le nœud est bien à la limite et explique a posteriori tous
+les crashs rencontrés.
+
+**Leçon retenue** : un chiffre de consommation élevé (`kubectl top pod`)
+qui coïncide avec une limite proche ne prouve pas la cause — un vrai
+`OOMKilled` dans les événements le prouverait. Sans cette preuve
+explicite, chercher activement d'autres causes (ici, les probes) plutôt
+que d'empiler des augmentations de ressources qui ne réglent rien.
+
+**Résultat** : monitoring Kubernetes local entièrement fonctionnel,
+Prometheus + Grafana, sans aucune dépendance IAM Azure — contrairement à
+la version Azure Managed Grafana de la veille (accessible mais jamais de
+données réelles).

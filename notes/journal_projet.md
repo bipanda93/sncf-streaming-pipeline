@@ -706,3 +706,20 @@ dette technique `scope_value`, et la question de quand faire le
 `terraform destroy` pour limiter les coûts avant la soutenance (penser
 à `az keyvault purge --name kv-sncf-dev` après, sans quoi le nom reste
 réservé 90 jours).
+
+## 2026-09-14 — Monitoring local opérationnel (Prometheus + Grafana sur AKS)
+
+Accès Airflow perdu réglé en quelques secondes (juste le port-forward à
+relancer, AKS avait tourné sans interruption 41h). Décision de basculer
+le monitoring en local via `kube-prometheus-stack` plutôt que de
+continuer à batailler avec l'intégration Azure Monitor Workspace de la
+veille, jamais aboutie. Après plusieurs itérations sur les ressources
+(un premier diagnostic mémoire erroné, corrigé grâce à l'historique des
+événements Kubernetes plutôt qu'aux seuls chiffres de consommation),
+Prometheus et Grafana tournent stablement, avec de vraies métriques en
+direct confirmées (le namespace `airflow` à 98.3% de ses requêtes CPU
+sur le nœud unique — cause objective des crashs Grafana rencontrés).
+Détail complet dans `incidents_2026-09-12.md` (point 12).
+
+Reste à trancher aujourd'hui : Databricks (accès bloqué, probable
+restriction tenant école) et le visuel Streamlit prévu.
