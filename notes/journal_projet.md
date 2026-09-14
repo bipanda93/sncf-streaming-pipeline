@@ -723,3 +723,28 @@ Détail complet dans `incidents_2026-09-12.md` (point 12).
 
 Reste à trancher aujourd'hui : Databricks (accès bloqué, probable
 restriction tenant école) et le visuel Streamlit prévu.
+
+## 2026-09-14 (suite) — Dashboard Streamlit : santé des données du pipeline
+
+Après le monitoring local, décision de laisser Databricks de côté
+(accès toujours bloqué, cause probable hors de contrôle) et de se
+concentrer sur Streamlit. Angle retenu après clarification : santé des
+données (fraîcheur, volume, qualité par table Delta) plutôt
+qu'exploration ML/LLM — ces deux derniers pipelines n'ayant jamais
+tourné, aucune donnée réelle à exposer aujourd'hui. Structure pensée
+pour activer l'onglet ML/LLM sans réécriture le jour où ces DAGs
+produiront enfin des résultats.
+
+Deux bugs de démarrage résolus (chemin d'import propre à `streamlit
+run`, puis un type hétérogène entre colonnes d'horodatage selon les
+tables) avant d'obtenir un tableau fonctionnel sur les 6 tables du
+pipeline, 309 000+ lignes. Le dashboard a immédiatement révélé un vrai
+décalage opérationnel (Bronze rafraîchi, Silver pas encore rattrapé) —
+détail complet dans `incidents_2026-09-14.md`.
+
+Version Streamlit mise à jour (1.48.0 → 1.63.0) et présentation
+retravaillée : icônes de couche, badges de statut colorés, cartes de
+métriques stylées — sans régression après la mise à jour.
+
+`requirements.txt` mis à jour (Streamlit n'y figurait pas malgré son
+usage local — trou de reproductibilité corrigé).

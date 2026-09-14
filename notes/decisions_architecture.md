@@ -569,3 +569,22 @@ stockage (`ReadWriteMany` nécessite une storageclass de type fichier
 comme `azurefile`, jamais le disque `default`) sont directement
 réutilisables pour tout futur déploiement Kubernetes sur Azure,
 indépendamment de ce projet.
+
+## 2026-09-14 — Périmètre du dashboard Streamlit : santé des données, pas infra ni ML
+
+**Contexte** : avec Grafana (infra Kubernetes) déjà en place, le rôle de
+Streamlit restait à définir précisément pour ne pas faire doublon.
+
+**Décision** : Streamlit couvre la couche que ni Grafana (métriques
+Kubernetes/CPU/mémoire, aucune visibilité sur le contenu des tables) ni
+Power BI (analytics business finis, pas d'état opérationnel du
+pipeline) ne couvrent — fraîcheur, volume et qualité de chaque table
+Delta, medallion par medallion.
+
+**Angle ML/LLM volontairement différé** : bien que prévu dans la
+structure (onglet dédié, déjà présent), aucune donnée réelle n'existe
+encore (Isolation Forest jamais entraîné, `enrichissement_llm_mensuel`
+jamais exécuté) — afficher cet onglet avec du contenu aurait nécessité
+soit des données factices, soit d'attendre. Choix : structure prête,
+contenu vide avec message explicite, activation automatique sans
+retouche de code une fois ces pipelines réellement lancés.
