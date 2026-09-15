@@ -50,6 +50,7 @@ with DAG(
         )
         silver_task = BashOperator(
             task_id=f"silver_{dataset}",
+            pool="spark_silver_pool",
             bash_command=f"cd {PROJECT_DIR} && python3 -m src.historical.historical_silver_transform --dataset {dataset}",
         )
         load_task >> silver_task >> gold_task

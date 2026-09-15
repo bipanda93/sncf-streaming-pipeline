@@ -748,3 +748,38 @@ métriques stylées — sans régression après la mise à jour.
 
 `requirements.txt` mis à jour (Streamlit n'y figurait pas malgré son
 usage local — trou de reproductibilité corrigé).
+
+## 2026-09-14 (suite 2) — Journée dense : 5 incidents distincts, destroy final
+
+Après le dashboard Streamlit, la journée a enchaîné plusieurs incidents
+indépendants, tous liés de près ou de loin à l'environnement local
+(Docker Desktop instable à plusieurs reprises) : un échec DNS sur
+`disruption_context` (résolu par redémarrage Docker), une longue saga de
+configuration de la clé API Claude (plusieurs échecs de copier-coller
+en chaîne, résolus en changeant de méthode pour `nano`), la découverte
+que l'API Claude nécessite des crédits même pour un premier appel
+(authentification validée, facturation non activée, laissé de côté), une
+contention ressources sur `historique_mensuel` (5 jobs Spark parallèles
+tués silencieusement, corrigée par un pool Airflow dédié), et enfin la
+découverte que le scheduler Airflow local était mort — jamais reconfirmé
+vivant avant la fin de session.
+
+Tentative de vérification de l'hypothèse Databricks (consentement tenant
+école) : plusieurs essais de capture de la vraie erreur Microsoft
+(terminal, inspecteur réseau Safari) tous infructueux pour des raisons
+techniques différentes — investigation abandonnée, le sujet reste
+documenté comme limite connue sans confirmation définitive.
+
+Fin de session : Phase 2 Azure détruite (37 ressources), avec une
+découverte inattendue -- le soft-delete Key Vault redouté depuis le
+12/09 ne s'est pas matérialisé (`az keyvault list-deleted` vide sur tout
+l'abonnement), donc le futur `apply` avant la soutenance ne devrait pas
+être bloqué par une réservation de nom.
+
+**Point à reprendre en priorité à la prochaine session** : confirmer que
+le scheduler Airflow local a bien redémarré sainement, puis valider pour
+de vrai que le pool `spark_silver_pool` résout la contention sur
+`historique_mensuel` (jamais vérifié de bout en bout aujourd'hui).
+
+Détail complet de chaque incident dans `incidents_2026-09-14.md`
+(points 4 à 9).
