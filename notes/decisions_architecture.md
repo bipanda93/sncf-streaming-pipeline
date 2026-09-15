@@ -612,3 +612,27 @@ indépendantes juste pour les forcer à s'exécuter l'une après l'autre.
 **Portée** : pattern directement réutilisable pour tout futur DAG qui
 lance plusieurs jobs Spark en parallèle sur un environnement à
 ressources limitées (standalone local, ou même AKS avec un seul nœud).
+
+## 2026-09-14 — Pools Airflow pour throttler des jobs Spark concurrents
+
+**Contexte** : `historique_mensuel` lance dynamiquement une tâche
+`silver_*` par dataset (boucle sur `DATASETS`), sans dépendance explicite
+entre elles — Airflow les exécute donc en parallèle par défaut. Sur un
+déploiement `standalone` (scheduler + workers dans le même conteneur,
+ressources partagées), plusieurs jobs Spark simultanés se sont révélés
+tués silencieusement (SIGKILL, aucun traceback) par manque de ressources.
+
+**Décision** : un pool Airflow dédié (`spark_silver_pool`, 1 slot),
+assigné uniquement aux tâches lourdes (`silver_*`, celles qui lancent
+Spark) via l'argument `pool=` sur chaque `BashOperator`. Les tâches
+légères (`load_*`) restent hors du pool, toujours parallèles.
+
+**Pourquoi un pool plutôt qu'un séquencement explicite dans le DAG** :
+un pool limite la concurrence sans changer la structure logique du
+graphe (`load >> silver >> gold` reste inchangé pour chaque dataset) --
+pas besoin d'ajouter des dépendances artificielles entre les 5 chaînes
+indépendantes juste pour les forcer à s'exécuter l'une après l'autre.
+
+**Portée** : pattern directement réutilisable pour tout futur DAG qui
+lance plusieurs jobs Spark en parallèle sur un environnement à
+ressources limitées (standalone local, ou même AKS avec un seul nœud).
