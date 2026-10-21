@@ -784,37 +784,42 @@ de vrai que le pool `spark_silver_pool` résout la contention sur
 Détail complet de chaque incident dans `incidents_2026-09-14.md`
 (points 4 à 9).
 
-## 2026-09-14 (suite 2) — Journée dense : 5 incidents distincts, destroy final
+## 2026-10-21 — CI réelle : 4 contrôles obligatoires, `main` protégée, `deploy.yml` sécurisé
 
-Après le dashboard Streamlit, la journée a enchaîné plusieurs incidents
-indépendants, tous liés de près ou de loin à l'environnement local
-(Docker Desktop instable à plusieurs reprises) : un échec DNS sur
-`disruption_context` (résolu par redémarrage Docker), une longue saga de
-configuration de la clé API Claude (plusieurs échecs de copier-coller
-en chaîne, résolus en changeant de méthode pour `nano`), la découverte
-que l'API Claude nécessite des crédits même pour un premier appel
-(authentification validée, facturation non activée, laissé de côté), une
-contention ressources sur `historique_mensuel` (5 jobs Spark parallèles
-tués silencieusement, corrigée par un pool Airflow dédié), et enfin la
-découverte que le scheduler Airflow local était mort — jamais reconfirmé
-vivant avant la fin de session.
+Point de départ honnête : le README annonçait « CI/CD : GitHub Actions »,
+mais seul le Terraform était couvert (`deploy.yml`), et les fichiers de
+tests étaient vides (`pytest` : `collected 0 items`). Construction d'un
+`ci.yml` sans aucun secret ni service externe, sur le modèle de la CI du
+projet Leclerc, dont la fin de l'essai Snowflake venait de montrer la
+fragilité d'une CI dépendante d'un compte cloud.
 
-Tentative de vérification de l'hypothèse Databricks (consentement tenant
-école) : plusieurs essais de capture de la vraie erreur Microsoft
-(terminal, inspecteur réseau Safari) tous infructueux pour des raisons
-techniques différentes — investigation abandonnée, le sujet reste
-documenté comme limite connue sans confirmation définitive.
+Quatre contrôles, tous verts sur la PR #1 (première PR du dépôt) :
+`dag-tests` (chargement des 6 DAGs, testé d'abord dans le conteneur
+`sncf-airflow` faute de pouvoir installer Airflow 3.3.1 sur le Mac Intel),
+`lint` (ruff 0.17.1 : 23 erreurs corrigées, dont deux vrais défauts —
+une détection de table Delta qui avalait toutes les exceptions, copiée
+trois fois et remplacée par `src/common/delta_utils.py`, et des erreurs de
+lecture perdues en silence dans le dashboard Streamlit),
+`terraform-validate` (fmt, init sans backend, validate) et `docker-build`
+(image construite et vérifiée : Java 17, PySpark 4.1.0, Airflow 3.3.1,
+Delta ; 1 min sur le runner contre 6 en local).
 
-Fin de session : Phase 2 Azure détruite (37 ressources), avec une
-découverte inattendue -- le soft-delete Key Vault redouté depuis le
-12/09 ne s'est pas matérialisé (`az keyvault list-deleted` vide sur tout
-l'abonnement), donc le futur `apply` avant la soutenance ne devrait pas
-être bloqué par une réservation de nom.
+Constat important en chemin : aucun bloc `backend`, le state Terraform est
+local. Les jobs `apply`/`destroy` de `deploy.yml` auraient pu créer des
+ressources Azure facturées puis perdre leur state. Retirés, `deploy.yml`
+réduit à un plan manuel. Les secrets `ARM_*` sont toujours valides dans
+GitHub (plan réussi en CI).
 
-**Point à reprendre en priorité à la prochaine session** : confirmer que
-le scheduler Airflow local a bien redémarré sainement, puis valider pour
-de vrai que le pool `spark_silver_pool` résout la contention sur
-`historique_mensuel` (jamais vérifié de bout en bout aujourd'hui).
+`main` est protégée par un ruleset : pull request obligatoire, les 4
+contrôles exigés, aucune liste de contournement. Push direct testé et
+refusé (`GH013`, « 4 of 4 required status checks are expected »).
+Ajout d'un `.dockerignore` (`.env`, `.git`, caches).
+Détail complet dans `incidents_2026-10-21.md`.
 
-Détail complet de chaque incident dans `incidents_2026-09-14.md`
-(points 4 à 9).
+Ménage documentaire : l'entrée « 2026-09-14 (suite 2) » de ce journal et
+la décision « Pools Airflow » étaient collées deux fois ; doublons retirés.
+
+Reste à faire : tests unitaires Spark sur les transformations
+Bronze → Silver → Gold (cinquième contrôle obligatoire), et backend
+Terraform distant si la CI doit un jour déployer.
+
