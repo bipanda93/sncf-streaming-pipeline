@@ -87,7 +87,8 @@ def build_health_table() -> pd.DataFrame:
         df, error = load_delta_table(path)
 
         if df is None:
-            st.warning(f"{name} : lecture impossible ({error})")
+            if not is_reject_zone:
+                st.warning(f"{name} : lecture impossible ({error})")
             statut = "Aucun rejet (sain)" if is_reject_zone else "Jamais alimentée"
             rows.append({
                 "": LAYER_ICONS[layer], "Couche": layer, "Table": name, "Statut": statut,
