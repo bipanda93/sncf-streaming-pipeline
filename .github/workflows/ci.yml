@@ -25,3 +25,28 @@ jobs:
 
       - name: Tester le chargement des DAGs
         run: pytest tests/test_dags.py -v
+
+  terraform-validate:
+    runs-on: ubuntu-24.04
+
+    defaults:
+      run:
+        working-directory: infra/terraform
+
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v5
+
+      - name: Installer Terraform (même version qu'en local)
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.8"
+
+      - name: Vérifier le formatage
+        run: terraform fmt -check -recursive
+
+      - name: Initialiser sans backend ni connexion Azure
+        run: terraform init -backend=false
+
+      - name: Valider la configuration
+        run: terraform validate
