@@ -28,12 +28,13 @@ Usage :
 """
 import argparse
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from delta import configure_spark_with_delta_pip
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col, current_timestamp, lit, month, year
 
+from src.common.delta_utils import delta_table_existe
 from src.enrichment.claude_client import ClaudeClient
 from src.ingestion import config
 from src.streaming.gold_realtime_alerts import _add_affected_stations
@@ -59,18 +60,14 @@ def _parse_target_month(month_str) -> tuple[int, int]:
     if month_str:
         year_num, month_num = month_str.split("-")
         return int(year_num), int(month_num)
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     if now.month == 1:
         return now.year - 1, 12
     return now.year, now.month - 1
 
 
 def _table_exists(spark, path: str) -> bool:
-    try:
-        spark.read.format("delta").load(path).limit(1).count()
-        return True
-    except Exception:
-        return False
+    return delta_table_existe(spark, path)
 
 
 def run_monthly_enrichment(target_year: int, target_month: int, mock_mode: bool) -> None:

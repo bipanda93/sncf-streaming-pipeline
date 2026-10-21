@@ -19,12 +19,13 @@ Usage :
     python -m src.monitoring.pipeline_metrics
 """
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from delta import configure_spark_with_delta_pip
 from pyspark.sql import Row, SparkSession
 from pyspark.sql.functions import col
 
+from src.common.delta_utils import delta_table_existe
 from src.ingestion import config
 
 logging.basicConfig(
@@ -55,11 +56,7 @@ def build_spark_session() -> SparkSession:
 
 
 def _table_exists(spark, path: str) -> bool:
-    try:
-        spark.read.format("delta").load(path).limit(1).count()
-        return True
-    except Exception:
-        return False
+    return delta_table_existe(spark, path)
 
 
 def collect_metrics_for_table(spark, table_name: str, table_path: str, key_column: str) -> Row:
@@ -74,7 +71,7 @@ def collect_metrics_for_table(spark, table_name: str, table_path: str, key_colum
 
     return Row(
         table_name=table_name,
-        executed_at=datetime.now(timezone.utc),
+        executed_at=datetime.now(UTC),
         row_count=row_count,
         key_column_name=key_column,
         null_rate=null_rate,

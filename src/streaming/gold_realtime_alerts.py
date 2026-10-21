@@ -32,8 +32,16 @@ import logging
 from delta import configure_spark_with_delta_pip
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import (
-    array_distinct, coalesce, col, concat_ws, current_timestamp,
-    flatten, lit, size, transform, when,
+    array_distinct,
+    coalesce,
+    col,
+    concat_ws,
+    current_timestamp,
+    flatten,
+    lit,
+    size,
+    transform,
+    when,
 )
 
 from src.ingestion import config

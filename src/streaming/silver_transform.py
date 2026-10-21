@@ -25,8 +25,21 @@ import logging
 
 from delta import configure_spark_with_delta_pip
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import col, current_timestamp, desc, from_json, row_number, to_timestamp
-from pyspark.sql.types import ArrayType, IntegerType, StringType, StructField, StructType
+from pyspark.sql.functions import (
+    col,
+    current_timestamp,
+    desc,
+    from_json,
+    row_number,
+    to_timestamp,
+)
+from pyspark.sql.types import (
+    ArrayType,
+    IntegerType,
+    StringType,
+    StructField,
+    StructType,
+)
 from pyspark.sql.window import Window
 
 from src.ingestion import config

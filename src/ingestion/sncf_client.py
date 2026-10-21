@@ -13,8 +13,7 @@ avant même d'avoir reçu l'accès à l'API SNCF.
 import logging
 import random
 import uuid
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 
 import requests
 
@@ -33,7 +32,7 @@ class SNCFAPIError(Exception):
 
 
 class SNCFClient:
-    def __init__(self, token: Optional[str] = None, timeout: int = 10):
+    def __init__(self, token: str | None = None, timeout: int = 10):
         self.token = token
         self.timeout = timeout
         self.mock_mode = token is None
@@ -47,7 +46,7 @@ class SNCFClient:
     # Appels API réels                                                    #
     # ------------------------------------------------------------------ #
 
-    def _get(self, path: str, params: Optional[dict] = None) -> dict:
+    def _get(self, path: str, params: dict | None = None) -> dict:
         if self.mock_mode:
             raise SNCFAPIError(
                 "Appel réseau demandé alors que le client est en mode mock "
@@ -86,7 +85,7 @@ class SNCFClient:
         if self.mock_mode:
             return self._mock_disruptions()
 
-        today = datetime.now(timezone.utc).strftime("%Y%m%d")
+        today = datetime.now(UTC).strftime("%Y%m%d")
         all_disruptions: list[dict] = []
         start_page = 0
         total = 0
@@ -165,7 +164,7 @@ class SNCFClient:
             {"name": "perturbation", "effect": "SIGNIFICANT_DELAYS"},
             {"name": "critique", "effect": "REDUCED_SERVICE"},
         ]
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         n = random.randint(1, 5)
         return [
             {
@@ -194,7 +193,7 @@ class SNCFClient:
 
     @staticmethod
     def _mock_departures(stop_area_id: str) -> list[dict]:
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         n = random.randint(2, 8)
         return [
             {

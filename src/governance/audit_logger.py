@@ -12,10 +12,11 @@ pourraient adopter le même mécanisme -- noté comme piste, pas fait à ce
 stade pour ne pas modifier des scripts déjà testés et stables.
 """
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from pyspark.sql import Row
 
+from src.common.delta_utils import delta_table_existe
 from src.ingestion import config
 
 logger = logging.getLogger(__name__)
@@ -25,7 +26,7 @@ def log_job_execution(spark, job_name, source_table, target_table, rows_processe
     """Ajoute une ligne à gold_audit_log. Crée la table au premier appel."""
     row = Row(
         job_name=job_name,
-        executed_at=datetime.now(timezone.utc),
+        executed_at=datetime.now(UTC),
         source_table=source_table,
         target_table=target_table,
         rows_processed=int(rows_processed),
@@ -34,11 +35,7 @@ def log_job_execution(spark, job_name, source_table, target_table, rows_processe
     )
     audit_df = spark.createDataFrame([row])
 
-    try:
-        spark.read.format("delta").load(config.DELTA_GOLD_AUDIT_LOG_PATH).limit(1).count()
-        table_exists = True
-    except Exception:
-        table_exists = False
+    table_exists = delta_table_existe(spark, config.DELTA_GOLD_AUDIT_LOG_PATH)
 
     mode = "append" if table_exists else "overwrite"
     audit_df.write.format("delta").mode(mode).save(config.DELTA_GOLD_AUDIT_LOG_PATH)

@@ -50,3 +50,21 @@ jobs:
 
       - name: Valider la configuration
         run: terraform validate
+
+  lint:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v5
+
+      - name: Installer Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Installer ruff (même version qu'en local)
+        run: pip install "ruff==0.17.1"
+
+      - name: Vérifier le code Python
+        run: ruff check src/ dags/ tests/

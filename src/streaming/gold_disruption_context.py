@@ -26,14 +26,29 @@ import csv
 import io
 import logging
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import requests
 from delta import configure_spark_with_delta_pip
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import (
-    array_distinct, avg, col, collect_set, concat_ws, count, countDistinct,
-    explode, lit, month, regexp_replace, size, split, trim, udf, upper, when, year,
+    array_distinct,
+    avg,
+    col,
+    collect_set,
+    concat_ws,
+    countDistinct,
+    explode,
+    lit,
+    month,
+    regexp_replace,
+    size,
+    split,
+    trim,
+    udf,
+    upper,
+    when,
+    year,
 )
 from pyspark.sql.types import DoubleType
 
@@ -271,7 +286,7 @@ def run_gold_disruption_context() -> None:
 
     alerts_df = spark.read.format("delta").load(config.DELTA_GOLD_REALTIME_ALERTS_PATH)
     historical_df = spark.read.format("delta").load(config.DELTA_GOLD_PUNCTUALITY_TRENDS_PATH)
-    current_month_num = datetime.now(timezone.utc).month
+    current_month_num = datetime.now(UTC).month
 
     monthly_context_df = _build_monthly_context(spark, historical_df, current_month_num)
     stations_lookup = _load_stations_region_lookup(spark)
