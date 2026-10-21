@@ -68,3 +68,21 @@ jobs:
 
       - name: Vérifier le code Python
         run: ruff check src/ dags/ tests/
+
+  docker-build:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v5
+
+      - name: Construire l'image Airflow (sans push)
+        run: docker build -f Dockerfile.airflow -t sncf-airflow:ci .
+
+      - name: Vérifier Java dans l'image (requis par PySpark)
+        run: docker run --rm --entrypoint java sncf-airflow:ci -version
+
+      - name: Vérifier les dépendances Python dans l'image
+        run: >
+          docker run --rm --entrypoint python sncf-airflow:ci -c
+          "import pyspark, delta, airflow; print('pyspark', pyspark.__version__, '| airflow', airflow.__version__)"
