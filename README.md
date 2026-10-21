@@ -1,5 +1,7 @@
 # Pipeline de Streaming Temps Réel SNCF
 
+[![CI](https://github.com/bipanda93/sncf-streaming-pipeline/actions/workflows/ci.yml/badge.svg)](https://github.com/bipanda93/sncf-streaming-pipeline/actions/workflows/ci.yml)
+
 Architecture data engineering cloud-native pour l'ingestion, le traitement et la restitution des perturbations ferroviaires SNCF en temps réel, avec historique de régularité et détection d'anomalies.
 
 **Auteur** : Bipanda Franck Ulrich — Mastère Data Engineering, Digital School de Paris
@@ -35,7 +37,20 @@ Architecture medallion complète, avec une table de pont (bridge table) pour gé
 | Monitoring | Prometheus + Grafana (kube-prometheus-stack, local au cluster) |
 | Restitution | Power BI (architecture double : Fabric Direct Lake + Desktop Import) |
 | IA | Isolation Forest (détection d'anomalies), Claude API (enrichissement) |
-| CI/CD | GitHub Actions |
+| CI/CD | GitHub Actions (lint, tests des DAGs, build Docker, validation Terraform), contrôles obligatoires sur `main` |
+
+## Intégration continue
+
+Chaque pull request vers `main` lance quatre contrôles (`.github/workflows/ci.yml`), tous obligatoires pour fusionner (ruleset sur `main`, sans contournement possible) :
+
+- **dag-tests** : les 6 DAGs Airflow se chargent sans erreur, un DAG par fichier, identifiants uniques (Airflow 3.3.1, comme l'image de production) ;
+- **lint** : analyse statique du code Python avec ruff ;
+- **terraform-validate** : formatage et validation de la configuration Terraform, sans connexion à Azure ;
+- **docker-build** : construction de l'image Airflow et vérification de Java 17, PySpark, Delta et Airflow à l'intérieur.
+
+Aucun contrôle n'utilise de secret ni de service externe : la CI ne dépend ni d'Azure, ni de Kafka, ni de l'API SNCF.
+
+Le déploiement Terraform (`deploy.yml`) se limite à un plan déclenché manuellement : le state Terraform étant local, `apply` et `destroy` ne se font que depuis le poste de travail (voir `notes/decisions_architecture.md`, 2026-10-21).
 
 ## Orchestration Airflow
 

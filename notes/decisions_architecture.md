@@ -613,26 +613,64 @@ indépendantes juste pour les forcer à s'exécuter l'une après l'autre.
 lance plusieurs jobs Spark en parallèle sur un environnement à
 ressources limitées (standalone local, ou même AKS avec un seul nœud).
 
-## 2026-09-14 — Pools Airflow pour throttler des jobs Spark concurrents
+## 2026-10-21 — CI sans secret ni service externe, contrôles obligatoires sur `main`
 
-**Contexte** : `historique_mensuel` lance dynamiquement une tâche
-`silver_*` par dataset (boucle sur `DATASETS`), sans dépendance explicite
-entre elles — Airflow les exécute donc en parallèle par défaut. Sur un
-déploiement `standalone` (scheduler + workers dans le même conteneur,
-ressources partagées), plusieurs jobs Spark simultanés se sont révélés
-tués silencieusement (SIGKILL, aucun traceback) par manque de ressources.
+**Contexte** : la seule CI existante (`deploy.yml`) ne couvrait que le
+Terraform et dépendait des secrets Azure ; le code Python, les DAGs et
+l'image Docker n'étaient vérifiés nulle part, et `main` acceptait les
+push directs. Sur le projet Leclerc, une CI dépendante de Snowflake venait
+de casser à la fin de l'essai gratuit.
 
-**Décision** : un pool Airflow dédié (`spark_silver_pool`, 1 slot),
-assigné uniquement aux tâches lourdes (`silver_*`, celles qui lancent
-Spark) via l'argument `pool=` sur chaque `BashOperator`. Les tâches
-légères (`load_*`) restent hors du pool, toujours parallèles.
+**Décision** : un `ci.yml` déclenché sur chaque pull request vers `main`,
+sans filtre de chemins et sans aucun secret, avec quatre jobs :
+`dag-tests` (les 6 DAGs se chargent, un DAG par fichier, `dag_id`
+uniques), `lint` (ruff), `terraform-validate` (`fmt -check`,
+`init -backend=false`, `validate`) et `docker-build` (build de
+`Dockerfile.airflow` sans push, puis vérification de Java, PySpark,
+Delta et Airflow dans l'image). Les quatre sont obligatoires via un
+ruleset sur `main` : pull request obligatoire, 0 approbation (projet mené
+seul), liste de contournement vide.
 
-**Pourquoi un pool plutôt qu'un séquencement explicite dans le DAG** :
-un pool limite la concurrence sans changer la structure logique du
-graphe (`load >> silver >> gold` reste inchangé pour chaque dataset) --
-pas besoin d'ajouter des dépendances artificielles entre les 5 chaînes
-indépendantes juste pour les forcer à s'exécuter l'une après l'autre.
+**Versions figées partout** : Python 3.12, Airflow 3.3.1 avec son fichier
+de contraintes (comme `Dockerfile.airflow`), Terraform 1.9.8 avec
+`.terraform.lock.hcl`, ruff 0.17.1, `ubuntu-24.04`, `checkout@v5`,
+`setup-python@v6`. Une nouvelle version d'outil ne doit pas faire passer
+la CI au rouge sans changement de code.
 
-**Portée** : pattern directement réutilisable pour tout futur DAG qui
-lance plusieurs jobs Spark en parallèle sur un environnement à
-ressources limitées (standalone local, ou même AKS avec un seul nœud).
+**Alternatives écartées** :
+- Filtres `paths` par job : un contrôle obligatoire qui ne se lance pas
+  reste « en attente » et bloque la PR. Les quatre jobs durent chacun
+  une minute au plus.
+- Tester contre Kafka, Event Hubs ou l'API SNCF réels : lent, fragile, et
+  dépendant de services qui peuvent disparaître.
+- Exiger une approbation : impossible d'approuver sa propre PR.
+
+**Limites** : aucun test ne vérifie encore la logique des transformations
+Spark (prochain contrôle à ajouter, avec Java 17 sur le runner). Les
+tests de DAGs vérifient le chargement et l'unicité, pas encore la
+structure de chaque DAG (tâches, ordre, relances).
+
+---
+
+## 2026-10-21 — Apply/destroy retirés de la CI tant que le state Terraform est local
+
+**Contexte** : `deploy.yml` (décision du 19/08) proposait `apply` et
+`destroy` en déclenchement manuel. Or aucun bloc `backend` n'est
+configuré : le state est local. Un runner GitHub part sans state.
+
+**Décision** : `deploy.yml` est réduit à un `terraform plan` en
+déclenchement manuel. `apply` et `destroy` sont retirés et laissés en
+commentaire avec la condition de réactivation. Ils se font uniquement en
+local, là où se trouve le state. La validation automatique du code
+Terraform passe par `terraform-validate`, sans secret.
+
+**Pourquoi** : un `apply` depuis GitHub aurait créé des ressources Azure
+facturées, puis perdu le state à la fin du run ; aucun `destroy` n'aurait
+pu les retrouver. Le plan automatique sur les PR a aussi été retiré : sans
+state partagé, il annonçait la création de toutes les ressources, ce qui
+ne reflète pas l'état réel.
+
+**Condition de réactivation** : un backend `azurerm` (Storage Account et
+container dédiés au state, avec verrouillage), puis remise des jobs et de
+la protection d'environnement `production`.
+
