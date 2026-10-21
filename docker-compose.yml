@@ -47,6 +47,7 @@ services:
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       PYTHONPATH: /opt/airflow/project
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
     volumes:
       - airflow_home:/opt/airflow
       - ivy_cache:/home/airflow/.ivy2.5.2
