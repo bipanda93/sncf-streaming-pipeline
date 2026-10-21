@@ -1,0 +1,88 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  dag-tests:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v5
+
+      - name: Installer Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Installer Airflow (même version que Dockerfile.airflow)
+        run: >
+          pip install "apache-airflow==3.3.1" apache-airflow-providers-standard pytest
+          --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-3.3.1/constraints-3.12.txt"
+
+      - name: Tester le chargement des DAGs
+        run: pytest tests/test_dags.py -v
+
+  terraform-validate:
+    runs-on: ubuntu-24.04
+
+    defaults:
+      run:
+        working-directory: infra/terraform
+
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v5
+
+      - name: Installer Terraform (même version qu'en local)
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.8"
+
+      - name: Vérifier le formatage
+        run: terraform fmt -check -recursive
+
+      - name: Initialiser sans backend ni connexion Azure
+        run: terraform init -backend=false
+
+      - name: Valider la configuration
+        run: terraform validate
+
+  lint:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v5
+
+      - name: Installer Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Installer ruff (même version qu'en local)
+        run: pip install "ruff==0.17.1"
+
+      - name: Vérifier le code Python
+        run: ruff check src/ dags/ tests/
+
+  docker-build:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v5
+
+      - name: Construire l'image Airflow (sans push)
+        run: docker build -f Dockerfile.airflow -t sncf-airflow:ci .
+
+      - name: Vérifier Java dans l'image (requis par PySpark)
+        run: docker run --rm --entrypoint java sncf-airflow:ci -version
+
+      - name: Vérifier les dépendances Python dans l'image
+        run: >
+          docker run --rm --entrypoint python sncf-airflow:ci -c
+          "import pyspark, delta, airflow; print('pyspark', pyspark.__version__, '| airflow', airflow.__version__)"

@@ -16,7 +16,7 @@ Usage :
 """
 import argparse
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from delta import configure_spark_with_delta_pip
 from delta.tables import DeltaTable
@@ -48,7 +48,7 @@ def run_retention_purge(dry_run: bool = False) -> None:
     spark = build_spark_session()
     spark.sparkContext.setLogLevel("WARN")
 
-    cutoff = datetime.now(timezone.utc) - timedelta(days=RETENTION_MONTHS_BRONZE_REALTIME * 30)
+    cutoff = datetime.now(UTC) - timedelta(days=RETENTION_MONTHS_BRONZE_REALTIME * 30)
 
     bronze_df = spark.read.format("delta").load(config.DELTA_BRONZE_PATH)
     total_before = bronze_df.count()

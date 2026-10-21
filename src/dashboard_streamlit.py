@@ -47,7 +47,7 @@ def load_delta_table(path: str):
     spark = get_spark()
     try:
         return spark.read.format("delta").load(path), None
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 -- message affiché dans le tableau de bord
         return None, str(e)
 
 
@@ -75,7 +75,7 @@ def compute_fraicheur(last_write, expected_hours):
             lw = lw.tz_localize("UTC")
         age_h = (pd.Timestamp.now(tz="UTC") - lw).total_seconds() / 3600
         return "Fraîche" if age_h <= expected_hours else "À surveiller"
-    except Exception:
+    except (TypeError, ValueError):
         return "—"
 
 
@@ -87,6 +87,8 @@ def build_health_table() -> pd.DataFrame:
         df, error = load_delta_table(path)
 
         if df is None:
+            if not is_reject_zone:
+                st.warning(f"{name} : lecture impossible ({error})")
             statut = "Aucun rejet (sain)" if is_reject_zone else "Jamais alimentée"
             rows.append({
                 "": LAYER_ICONS[layer], "Couche": layer, "Table": name, "Statut": statut,

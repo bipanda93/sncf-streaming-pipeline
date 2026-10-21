@@ -25,7 +25,15 @@ from functools import reduce
 
 from delta import configure_spark_with_delta_pip
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import col, concat, current_timestamp, expr, lit, to_date, trim
+from pyspark.sql.functions import (
+    col,
+    concat,
+    current_timestamp,
+    expr,
+    lit,
+    to_date,
+    trim,
+)
 from pyspark.sql.types import DoubleType
 
 from src.historical.regularity_client import DATASETS

@@ -9,8 +9,7 @@ Seule la config change (config.py), jamais ce fichier.
 """
 import json
 import logging
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 
 from confluent_kafka import Producer
 
@@ -41,7 +40,7 @@ class SNCFKafkaProducer:
         event_type: str,
         source: str,
         payload: dict,
-        key: Optional[str] = None,
+        key: str | None = None,
     ) -> None:
         """
         Publie un événement enveloppé (metadata + payload brut) sur Kafka.
@@ -51,7 +50,7 @@ class SNCFKafkaProducer:
         lieu en Silver (dédoublonnage, nettoyage, typage).
         """
         envelope = {
-            "ingested_at": datetime.now(timezone.utc).isoformat(),
+            "ingested_at": datetime.now(UTC).isoformat(),
             "source": source,  # "sncf_api" ou "mock"
             "event_type": event_type,  # "disruption", "departure", ...
             "raw": payload,

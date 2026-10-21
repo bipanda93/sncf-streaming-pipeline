@@ -26,7 +26,7 @@ resource "azurerm_dashboard_grafana" "sncf" {
   resource_group_name = azurerm_resource_group.sncf.name
   location            = azurerm_resource_group.sncf.location
 
-  sku = "Standard"
+  sku                   = "Standard"
   grafana_major_version = 12
 
   api_key_enabled                   = true
@@ -61,5 +61,5 @@ resource "azurerm_role_assignment" "grafana_to_monitor_workspace" {
 resource "azurerm_role_assignment" "franck_grafana_editor" {
   scope                = azurerm_dashboard_grafana.sncf.id
   role_definition_name = "Grafana Editor"
-  principal_id          = "1471379d-4338-4c56-9794-4ad31d17307f"
+  principal_id         = "1471379d-4338-4c56-9794-4ad31d17307f"
 }
