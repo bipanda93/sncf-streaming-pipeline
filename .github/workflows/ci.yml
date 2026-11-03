@@ -125,3 +125,14 @@ jobs:
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  compose-validate:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v5
+
+      - name: Valider docker-compose.yml
+        env:
+          ANTHROPIC_API_KEY: bidon
+        run: docker compose config --quiet
