@@ -136,3 +136,17 @@ jobs:
         env:
           ANTHROPIC_API_KEY: bidon
         run: docker compose config --quiet
+
+  notify-slack:
+    runs-on: ubuntu-24.04
+    needs: [dag-tests, unit-tests, lint, secret-scan, terraform-validate, compose-validate, docker-build]
+    if: always() && github.actor != 'dependabot[bot]'
+
+    steps:
+      - name: Notifier Slack
+        uses: slackapi/slack-github-action@v2.1.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            text: "${{ contains(needs.*.result, 'failure') && 'CI en échec' || 'CI verte' }} sur ${{ github.repository }} (${{ github.ref_name }}) : ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
