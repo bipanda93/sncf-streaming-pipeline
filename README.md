@@ -17,7 +17,7 @@ Ce projet ingère en continu les données de perturbations du réseau SNCF (API 
 - 166 917 événements ingérés en continu (Bronze)
 - 17 778 perturbations distinctes après dédoublonnage (Silver)
 - 21 814 lignes d'historique de régularité (2013-2026)
-- 6 DAGs Airflow en production, orchestrés sur Kubernetes (AKS)
+- 6 DAGs Airflow, validés sur Docker Compose puis déployés sur Kubernetes (AKS)
 - 9 modules Terraform, 37 ressources Azure (déployées puis détruites le 15/09)
 
 ## Architecture
@@ -32,23 +32,28 @@ Architecture medallion complète, avec une table de pont (bridge table) pour gé
 |---|---|
 | Ingestion | Kafka, Python |
 | Traitement | PySpark, Delta Lake |
-| Orchestration | Apache Airflow (6 DAGs), déployé sur AKS via Helm (KubernetesExecutor) |
+| Orchestration | Apache Airflow (6 DAGs), Docker Compose en local, AKS via Helm (KubernetesExecutor) validé puis détruit |
 | Infrastructure | Terraform, Azure (Event Hubs, Databricks, AKS, ADLS Gen2, Container Registry) |
 | Monitoring | Prometheus + Grafana (kube-prometheus-stack, local au cluster) |
 | Restitution | Power BI (architecture double : Fabric Direct Lake + Desktop Import) |
 | IA | Isolation Forest (détection d'anomalies), Claude API (enrichissement) |
-| CI/CD | GitHub Actions (lint, tests des DAGs, build Docker, validation Terraform), contrôles obligatoires sur `main` |
+| CI/CD | GitHub Actions (7 contrôles : lint, tests unitaires, tests des DAGs, scan de secrets, validation Terraform et Compose, build Docker), Dependabot, contrôles obligatoires sur main |
 
 ## Intégration continue
 
-Chaque pull request vers `main` lance quatre contrôles (`.github/workflows/ci.yml`), tous obligatoires pour fusionner (ruleset sur `main`, sans contournement possible) :
+Chaque pull request vers `main` lance sept contrôles (`.github/workflows/ci.yml`), tous obligatoires pour fusionner (ruleset sur `main`, sans contournement possible) :
 
 - **dag-tests** : les 6 DAGs Airflow se chargent sans erreur, un DAG par fichier, identifiants uniques (Airflow 3.3.1, comme l'image de production) ;
+- **unit-tests** : tests unitaires du client SNCF (mode mock, erreurs HTTP, pagination) et du producteur Kafka (enveloppe, clé, flush), sans réseau ni broker ;
 - **lint** : analyse statique du code Python avec ruff ;
+- **secret-scan** : recherche de secrets dans les commits avec Gitleaks ;
 - **terraform-validate** : formatage et validation de la configuration Terraform, sans connexion à Azure ;
+- **compose-validate** : validation de `docker-compose.yml` ;
 - **docker-build** : construction de l'image Airflow et vérification de Java 17, PySpark, Delta et Airflow à l'intérieur.
 
-Aucun contrôle n'utilise de secret ni de service externe : la CI ne dépend ni d'Azure, ni de Kafka, ni de l'API SNCF.
+Dependabot propose chaque semaine les mises à jour des dépendances Python, des actions GitHub, de l'image Docker et de Terraform.
+
+Aucun contrôle ne dépend d'Azure, de Kafka ou de l'API SNCF, et aucun secret n'est à configurer : la CI tourne sur GitHub seul.
 
 Le déploiement Terraform (`deploy.yml`) se limite à un plan déclenché manuellement : le state Terraform étant local, `apply` et `destroy` ne se font que depuis le poste de travail (voir `notes/decisions_architecture.md`, 2026-10-21).
 
