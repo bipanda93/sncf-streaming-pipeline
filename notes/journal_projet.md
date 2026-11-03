@@ -823,3 +823,22 @@ Reste à faire : tests unitaires Spark sur les transformations
 Bronze → Silver → Gold (cinquième contrôle obligatoire), et backend
 Terraform distant si la CI doit un jour déployer.
 
+
+## 2026-11-03 — CI complète : 7 contrôles, Dependabot, Slack, mesure mémoire
+
+Ajout de `unit-tests` (7 tests sur le client SNCF et le producteur Kafka,
+réseau et Kafka remplacés par des doubles), `secret-scan` (Gitleaks) et
+`compose-validate`. `main` exige maintenant 7 contrôles. Ajout de
+Dependabot (pip, GitHub Actions, Docker, Terraform, chaque semaine) et de
+la notification Slack `notify-slack` (non exigée, ignorée pour
+Dependabot). Ménage : `scripts/test_keyvault.py` déplacé et commenté,
+`.DS_Store` ignoré.
+
+Mesure de la mémoire au pic de Spark : environ 6,8 Go, d'où un serveur de
+16 Go quand viendra la mise en ligne, dernière étape du plan.
+Détail dans `incidents_2026-11-03.md`.
+
+Reste à faire : tests unitaires Spark sur les transformations
+Bronze → Silver → Gold, choix et mise en place du serveur, carte Streamlit
+des lignes, site de documentation, backend Terraform distant si la CI doit
+un jour déployer.
