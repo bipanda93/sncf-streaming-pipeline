@@ -18,7 +18,7 @@ Ce projet ingère en continu les données de perturbations du réseau SNCF (API 
 - 17 778 perturbations distinctes après dédoublonnage (Silver)
 - 21 814 lignes d'historique de régularité (2013-2026)
 - 6 DAGs Airflow en production, orchestrés sur Kubernetes (AKS)
-- 9 modules Terraform, 38 ressources Azure (déploiement continu depuis le 10/09)
+- 9 modules Terraform, 37 ressources Azure (déployées puis détruites le 15/09)
 
 ## Architecture
 
