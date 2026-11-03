@@ -6,3 +6,4 @@ anthropic==0.40.0
 pyspark==4.1.0
 delta-spark==4.1.0
 streamlit==1.63.0
+pandas>=2.2,<3
