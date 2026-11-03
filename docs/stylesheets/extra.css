@@ -63,3 +63,8 @@ body::before {
 .md-sidebar--secondary { display: none !important; }
 .md-sidebar--primary .md-sidebar__scrollwrap { height: auto !important; }
 .md-sidebar--primary .md-sidebar__inner { height: auto; }
+
+/* Pas de lien permanent sur le titre de l'accueil */
+.md-typeset .hero .headerlink { display: none; }
+/* Lisibilité des lignes posées sur les reflets */
+.md-typeset .hero .stats, .md-typeset .flow, .md-typeset .flow-sub { text-shadow: 0 1px 10px rgba(0,0,0,.9); }
