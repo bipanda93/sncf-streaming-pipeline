@@ -32,4 +32,4 @@ d'exploiter `period_begin` à l'heure près -- jamais construit à ce jour.
   appellations régionales -- correction reportée (voir
   decisions_architecture.md, 03/09)
 - Isolation Forest non entraîné -- attend l'accumulation d'historique
-- Infrastructure Azure jamais testée en charge continue
+- Infrastructure Azure déployée puis détruite le 15/09 ; déploiement actuel local
