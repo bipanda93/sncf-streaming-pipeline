@@ -29,6 +29,24 @@ jobs:
       - name: Tester le chargement des DAGs
         run: pytest tests/test_dags.py -v
 
+  unit-tests:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v5
+
+      - name: Installer Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Installer les dépendances des tests
+        run: pip install requests==2.32.3 python-dotenv==1.0.1 confluent-kafka==2.5.0 pytest==9.2.0
+
+      - name: Lancer les tests unitaires
+        run: pytest tests/ --ignore=tests/test_dags.py -v
+
   terraform-validate:
     runs-on: ubuntu-24.04
 
