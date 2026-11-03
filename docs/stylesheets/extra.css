@@ -1,0 +1,65 @@
+/* Fond : la gare de nuit sur toute la page, fixe pendant le défilement */
+[data-md-color-scheme="slate"] {
+  --md-default-bg-color: transparent;
+  --md-primary-fg-color: transparent;
+  --md-accent-fg-color: #f6d860;
+  --md-typeset-a-color: #f6d860;
+  --glass: rgba(14, 22, 40, .62);
+  --glass-line: rgba(255, 255, 255, .1);
+}
+body { background: #070d1c; }
+body::before {
+  content: ""; position: fixed; inset: 0; z-index: -1;
+  background:
+    linear-gradient(90deg, rgba(5,9,22,.8) 0%, rgba(5,9,22,.5) 45%, rgba(5,9,22,.1) 100%),
+    url("../assets/gare.jpg") center / cover no-repeat;
+}
+.md-main, .md-container { background: transparent; }
+
+/* En-tête transparent */
+.md-header { background: transparent; box-shadow: none; }
+.md-header[data-md-state="shadow"] { background: rgba(7,13,28,.7); backdrop-filter: blur(8px); }
+
+/* Navigation à gauche, en verre dépoli */
+@media screen and (min-width: 76.25em) {
+  .md-sidebar--primary { padding-left: .6rem; }
+  .md-sidebar--primary .md-sidebar__scrollwrap {
+    background: rgba(14,22,40,.45); border: 1px solid var(--glass-line); border-radius: 16px;
+    backdrop-filter: blur(8px); margin-top: .5rem; padding: .4rem .2rem;
+  }
+}
+.md-nav__link--active, .md-nav__item .md-nav__link--active { color: #f6d860; font-weight: 600; }
+
+/* Contenu en verre dépoli (lisible sur les pages longues) */
+.md-content__inner {
+  background: var(--glass); border: 1px solid var(--glass-line); border-radius: 16px;
+  backdrop-filter: blur(10px); padding: 1.2rem 1.6rem 2rem; margin-top: .8rem; margin-bottom: 2rem;
+}
+
+/* Accueil : le texte se pose directement sur l'image */
+.md-content__inner:has(.hero) { background: none; border: 0; backdrop-filter: none; padding-top: 0; }
+.md-typeset .hero { padding: 6rem 0 3rem; color: #fff; }
+.md-typeset .hero .eyebrow { font-size: .72rem; letter-spacing: .2em; color: #f6d860; margin: 0 0 .5rem; }
+.md-typeset .hero h1 { color: #fff; font-size: 3.4rem; font-weight: 700; line-height: 1.05; margin: 0 0 1rem; max-width: 32rem; }
+.md-typeset .hero p { color: #d6e0f7; max-width: 30rem; margin: 0 0 1.4rem; font-size: .95rem; }
+.md-typeset .hero a.md-button { background: #f6d860; border-color: #f6d860; color: #1a1a1a; border-radius: 99px; }
+.md-typeset .hero a.md-button--ghost { background: transparent; border-color: transparent; color: #fff; }
+.md-typeset .hero .stats { margin-top: 3rem; font-size: .8rem; color: #aebbd6; }
+.md-typeset .hero .stats b { color: #f6d860; font-size: 1rem; }
+.md-typeset .hero .stats i { margin: 0 .5rem; opacity: .5; font-style: normal; }
+.md-typeset .flow { font-size: 1rem; color: #e8ecf5; margin: 1rem 0 .2rem; letter-spacing: .02em; }
+.md-typeset .flow-sub { font-size: .8rem; color: #8fa0c0; margin: 0; }
+
+/* Moins de bruit : pas de table des matières, pas de nom de dépôt */
+.md-sidebar--secondary { display: none; }
+.md-header__source { display: none; }
+.md-typeset table:not([class]) { background: transparent; }
+.md-typeset table:not([class]) td:first-child { white-space: nowrap; }
+@media (max-width: 600px) { .md-typeset .hero h1 { font-size: 2.1rem; } .md-typeset .hero { padding: 3rem 0 2rem; } }
+.md-typeset .hero p.stats { max-width: none; }
+@media screen and (min-width: 76.25em) {
+  .md-sidebar--primary .md-sidebar__scrollwrap { height: auto; max-height: calc(100vh - 6rem); }
+}
+.md-sidebar--secondary { display: none !important; }
+.md-sidebar--primary .md-sidebar__scrollwrap { height: auto !important; }
+.md-sidebar--primary .md-sidebar__inner { height: auto; }
