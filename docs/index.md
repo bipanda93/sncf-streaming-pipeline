@@ -14,7 +14,7 @@ Un pipeline temps réel sur les perturbations du réseau ferré, de l'API au tab
 [Architecture](notes/decisions_architecture.md){ .md-button }
 [Lire les incidents →](incidents.md){ .md-button .md-button--ghost }
 
-<p class="stats"><b>7</b> contrôles CI obligatoires <i>·</i> <b>22</b> journaux d'incidents <i>·</i> <b>~6,8 Go</b> de RAM mesurés au pic Spark</p>
+<p class="stats"><b>8</b> contrôles CI obligatoires <i>·</i> <b>22</b> journaux d'incidents <i>·</i> <b>~6,8 Go</b> de RAM mesurés au pic Spark</p>
 
 </div>
 

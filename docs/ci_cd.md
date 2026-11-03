@@ -2,7 +2,7 @@
 
 ## Intégration continue
 
-Chaque pull request vers `main` lance sept contrôles (`.github/workflows/ci.yml`), tous obligatoires pour fusionner (ruleset sur `main`, sans contournement possible) :
+Chaque pull request vers `main` lance huit contrôles (`.github/workflows/ci.yml`), tous obligatoires pour fusionner (ruleset sur `main`, sans contournement possible) :
 
 - **dag-tests** : les 6 DAGs Airflow se chargent sans erreur, un DAG par fichier, identifiants uniques (Airflow 3.3.1, comme l'image de production) ;
 - **unit-tests** : tests unitaires du client SNCF (mode mock, erreurs HTTP, pagination) et du producteur Kafka (enveloppe, clé, flush), sans réseau ni broker ;
@@ -10,7 +10,8 @@ Chaque pull request vers `main` lance sept contrôles (`.github/workflows/ci.yml
 - **secret-scan** : recherche de secrets dans les commits avec Gitleaks ;
 - **terraform-validate** : formatage et validation de la configuration Terraform, sans connexion à Azure ;
 - **compose-validate** : validation de `docker-compose.yml` ;
-- **docker-build** : construction de l'image Airflow et vérification de Java 17, PySpark, Delta et Airflow à l'intérieur.
+- **docker-build** : construction de l'image Airflow et vérification de Java 17, PySpark, Delta et Airflow à l'intérieur ;
+- **docs-build** : construction du site de documentation en mode strict, qui échoue sur un lien cassé.
 
 Dependabot propose chaque semaine les mises à jour des dépendances Python, des actions GitHub, de l'image Docker et de Terraform.
 
