@@ -674,3 +674,33 @@ ne reflète pas l'état réel.
 container dédiés au state, avec verrouillage), puis remise des jobs et de
 la protection d'environnement `production`.
 
+
+---
+
+## 2026-11-03 — Cinq contrôles de plus, Dependabot, Slack, dimensionnement du serveur
+
+**Contexte** : après les 4 premiers contrôles du 21/10, la CI ne couvrait
+ni les tests unitaires, ni la détection de secrets, ni la validation du
+`docker-compose.yml`, et personne n'était prévenu d'un échec.
+
+**Décisions** :
+- `main` exige désormais 7 contrôles : `dag-tests`, `unit-tests`, `lint`
+  (ruff), `secret-scan` (Gitleaks), `terraform-validate`,
+  `compose-validate`, `docker-build`.
+- Dependabot ouvre chaque semaine des pull requests pour pip, GitHub
+  Actions, Docker et Terraform. Chacune passe par les 7 contrôles et se
+  relit avant fusion.
+- `notify-slack` publie le résultat de la CI dans Slack. Il n'est pas
+  exigé pour la fusion : une panne de Slack ne doit pas bloquer le code.
+  Il est ignoré pour les pull requests de Dependabot.
+- Stack conservée : PySpark, Delta, Kafka, Airflow. Pas de réécriture en
+  dbt et PostgreSQL.
+- Mise en ligne sur un serveur : dernière étape, car aucune autre étape
+  n'en dépend.
+
+**Dimensionnement mesuré** : environ 6,8 Go au pic de Spark (Airflow
+6,02 Gio, Kafka 0,45, Kafka UI 0,33). Avec le système, Docker et les
+services annexes, il faut environ 9 à 10 Go, d'où un serveur de 16 Go.
+
+**Limites** : aucun test ne couvre encore les transformations Spark
+Bronze, Silver, Gold ; le serveur et son coût restent à choisir.

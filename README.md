@@ -59,7 +59,7 @@ Le déploiement Terraform (`deploy.yml`) se limite à un plan déclenché manuel
 
 ## Orchestration Airflow
 
-6 DAGs en production, orchestrés directement sur Kubernetes (AKS) :
+6 DAGs, validés sur Docker Compose en local et sur Kubernetes (AKS) avant la destruction de l'infra :
 - ingestion_bronze_temps_reel : ingestion Kafka vers Bronze, horaire
 - silver_gold_temps_reel : Silver vers Gold vers export Power BI, toutes les 4h
 - historique_mensuel : chargement de l'historique de régularité
