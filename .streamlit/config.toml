@@ -1,0 +1,10 @@
+[server]
+# Sert le dossier src/static/ (image de fond), à côté du script, à l adresse /app/static/
+enableStaticServing = true
+
+[theme]
+base = "dark"
+primaryColor = "#f6d860"
+backgroundColor = "#070d1c"
+secondaryBackgroundColor = "#0e1628"
+textColor = "#e8ecf5"
