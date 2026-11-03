@@ -14,10 +14,10 @@ jobs:
 
     steps:
       - name: Récupérer le code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Installer Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
@@ -34,10 +34,10 @@ jobs:
 
     steps:
       - name: Récupérer le code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Installer Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
@@ -56,10 +56,10 @@ jobs:
 
     steps:
       - name: Récupérer le code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Installer Terraform (même version qu'en local)
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@v4
         with:
           terraform_version: "1.9.8"
 
@@ -77,10 +77,10 @@ jobs:
 
     steps:
       - name: Récupérer le code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Installer Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
@@ -95,7 +95,7 @@ jobs:
 
     steps:
       - name: Récupérer le code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Construire l'image Airflow (sans push)
         run: docker build -f Dockerfile.airflow -t sncf-airflow:ci .
@@ -107,3 +107,59 @@ jobs:
         run: >
           docker run --rm --entrypoint python sncf-airflow:ci -c
           "import pyspark, delta, airflow; print('pyspark', pyspark.__version__, '| airflow', airflow.__version__)"
+
+  secret-scan:
+    runs-on: ubuntu-24.04
+
+    permissions:
+      contents: read
+      pull-requests: read
+
+    steps:
+      - name: Récupérer le code (historique complet)
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Chercher des secrets dans les commits
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  compose-validate:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v7
+
+      - name: Valider docker-compose.yml
+        env:
+          ANTHROPIC_API_KEY: bidon
+        run: docker compose config --quiet
+
+  notify-slack:
+    runs-on: ubuntu-24.04
+    needs: [dag-tests, unit-tests, lint, secret-scan, terraform-validate, compose-validate, docker-build, docs-build]
+    if: always() && github.actor != 'dependabot[bot]'
+
+    steps:
+      - name: Notifier Slack
+        uses: slackapi/slack-github-action@v2.1.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            text: "${{ contains(needs.*.result, 'failure') && 'CI en échec' || 'CI verte' }} sur ${{ github.repository }} (${{ github.ref_name }}) : ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+  docs-build:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v7
+      - name: Installer Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Installer MkDocs
+        run: pip install -r requirements-docs.txt
+      - name: Construire le site (strict)
+        run: mkdocs build --strict
