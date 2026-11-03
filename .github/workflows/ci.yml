@@ -14,7 +14,7 @@ jobs:
 
     steps:
       - name: Récupérer le code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Installer Python
         uses: actions/setup-python@v6
@@ -34,7 +34,7 @@ jobs:
 
     steps:
       - name: Récupérer le code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Installer Python
         uses: actions/setup-python@v6
@@ -56,7 +56,7 @@ jobs:
 
     steps:
       - name: Récupérer le code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Installer Terraform (même version qu'en local)
         uses: hashicorp/setup-terraform@v3
@@ -77,7 +77,7 @@ jobs:
 
     steps:
       - name: Récupérer le code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Installer Python
         uses: actions/setup-python@v6
@@ -95,7 +95,7 @@ jobs:
 
     steps:
       - name: Récupérer le code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Construire l'image Airflow (sans push)
         run: docker build -f Dockerfile.airflow -t sncf-airflow:ci .
@@ -117,7 +117,7 @@ jobs:
 
     steps:
       - name: Récupérer le code (historique complet)
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -130,7 +130,7 @@ jobs:
 
     steps:
       - name: Récupérer le code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Valider docker-compose.yml
         env:
@@ -154,7 +154,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Récupérer le code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
       - name: Installer Python
         uses: actions/setup-python@v6
         with:
