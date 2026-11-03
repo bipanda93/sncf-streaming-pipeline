@@ -14,10 +14,16 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import pandas as pd
+import pydeck as pdk
 import streamlit as st
 from delta import configure_spark_with_delta_pip
 from pyspark.sql import SparkSession
+from pyspark.sql.functions import col, posexplode
+from pyspark.sql.types import TimestampType
 
+from src.carte.affichage import COULEURS_NIVEAUX, preparer_stations
+from src.carte.geo import NIVEAUX_ORDRE, charger_gares
+from src.dashboard_theme import appliquer_theme
 from src.ingestion import config
 
 
@@ -135,18 +141,7 @@ def style_health_table(df: pd.DataFrame):
 
 st.set_page_config(page_title="SNCF -- Santé du pipeline", page_icon="🚆", layout="wide")
 
-st.markdown("""
-<style>
-    div[data-testid="stMetric"] {
-        background-color: rgba(150, 150, 150, 0.08);
-        border: 1px solid rgba(150, 150, 150, 0.2);
-        border-radius: 10px;
-        padding: 16px 20px;
-    }
-    div[data-testid="stMetricValue"] { font-size: 2rem; }
-    h1 { padding-bottom: 0px; }
-</style>
-""", unsafe_allow_html=True)
+appliquer_theme()
 
 header_col1, header_col2 = st.columns([5, 1])
 with header_col1:
@@ -159,7 +154,42 @@ with header_col2:
     st.caption("Actualisé")
     st.caption(datetime.now().strftime("%d/%m %H:%M"))
 
-tab_data, tab_ml = st.tabs(["📊 Santé des données", "🤖 ML & LLM"])
+def vers_pandas(df):
+    """toPandas() sûr : les timestamps passent en texte (bug pandas 3 + pyspark 4)."""
+    colonnes = [
+        col(f.name).cast("string").alias(f.name)
+        if isinstance(f.dataType, TimestampType)
+        else col(f.name)
+        for f in df.schema.fields
+    ]
+    return df.select(*colonnes).toPandas()
+
+
+@st.cache_data(ttl=300, show_spinner="Lecture des perturbations actives…")
+def charger_donnees_carte():
+    """Arrêts impactés (Silver) et niveaux d'alerte (Gold), en pandas."""
+    spark = get_spark()
+    silver_actif = spark.read.format("delta").load(config.DELTA_SILVER_PATH).filter("status = 'active'")
+    arrets = (
+        silver_actif.select("disruption_id", posexplode("impacted_objects").alias("objet", "o"))
+        .select("disruption_id", posexplode("o.impacted_stops").alias("position", "s"))
+        .select("disruption_id", col("s.stop_point.id").alias("stop_id"))
+        .toPandas()
+    )
+    alertes = (
+        spark.read.format("delta").load(config.DELTA_GOLD_REALTIME_ALERTS_PATH)
+        .select("disruption_id", "alert_level")
+        .toPandas()
+    )
+    return arrets, alertes, silver_actif.count()
+
+
+@st.cache_resource
+def charger_referentiel_gares():
+    return charger_gares()
+
+
+tab_data, tab_carte, tab_ml = st.tabs(["📊 Santé des données", "🗺️ Carte", "🤖 ML & LLM"])
 
 with tab_data:
     health_df = build_health_table()
@@ -184,6 +214,77 @@ with tab_data:
         },
     )
 
+with tab_carte:
+    st.subheader("Gares touchées par les perturbations actives")
+    try:
+        arrets_df, alertes_df, nb_actives = charger_donnees_carte()
+    except Exception as e:  # noqa: BLE001 -- message affiché dans le tableau de bord
+        st.info(f"Données indisponibles (Silver ou Gold absents ou illisibles) : {e}")
+    else:
+        stations_df, stats = preparer_stations(arrets_df, alertes_df, charger_referentiel_gares())
+
+        niveaux_choisis = st.multiselect(
+            "Niveaux d'alerte affichés", NIVEAUX_ORDRE, default=["critical", "high", "medium"]
+        )
+        affichees = stations_df[stations_df["niveau"].isin(niveaux_choisis)]
+
+        k1, k2, k3 = st.columns(3)
+        k1.metric("Perturbations actives", f"{nb_actives:,}")
+        k2.metric("Gares affichées", f"{len(affichees):,}")
+        k3.metric(
+            "Arrêts localisés",
+            f"{stats['part_localisee']:.0%}",
+            help="Part des arrêts impactés retrouvés dans le référentiel des gares voyageurs. "
+                 "Les cars et les gares étrangères n'y figurent pas.",
+        )
+
+        if affichees.empty:
+            st.info("Aucune gare à afficher pour ces niveaux d'alerte.")
+        else:
+            pts = affichees.copy()
+            # Les plus graves sont dessinées en dernier (au-dessus des autres).
+            pts["ordre"] = pts["niveau"].map({n: i for i, n in enumerate(NIVEAUX_ORDRE)})
+            pts = pts.sort_values("ordre", ascending=False)
+            pts["rgb"] = pts["couleur"].map(
+                lambda h: [int(h[i:i + 2], 16) for i in (1, 3, 5)] + [210]
+            )
+            pts["rayon"] = 1500 + 500 * pts["nb_perturbations"].clip(upper=10)
+            st.pydeck_chart(
+                pdk.Deck(
+                    map_style="dark",
+                    initial_view_state=pdk.ViewState(latitude=46.6, longitude=2.5, zoom=5.3, pitch=0),
+                    layers=[
+                        pdk.Layer(
+                            "ScatterplotLayer",
+                            data=pts[["gare", "niveau", "nb_perturbations", "latitude", "longitude", "rgb", "rayon"]],
+                            get_position="[longitude, latitude]",
+                            get_fill_color="rgb",
+                            get_radius="rayon",
+                            radius_min_pixels=3,
+                            radius_max_pixels=9,
+                            pickable=True,
+                            stroked=True,
+                            get_line_color=[7, 13, 28, 255],
+                            line_width_min_pixels=1,
+                        )
+                    ],
+                    tooltip={
+                        "html": "<b>{gare}</b><br/>{nb_perturbations} perturbation(s) · {niveau}",
+                        "style": {"backgroundColor": "#0e1628", "color": "#e8ecf5"},
+                    },
+                ),
+                height=620,
+            )
+            st.caption(
+                " · ".join(f"<span style='color:{COULEURS_NIVEAUX[n]}'>●</span> {n}" for n in NIVEAUX_ORDRE),
+                unsafe_allow_html=True,
+            )
+            st.dataframe(
+                affichees[["gare", "niveau", "nb_perturbations"]].head(20),
+                use_container_width=True,
+                hide_index=True,
+            )
+
 with tab_ml:
     st.subheader("Résumés mensuels (Claude API)")
     df, error = load_delta_table(config.DELTA_GOLD_MONTHLY_SUMMARIES_PATH)
@@ -194,7 +295,7 @@ with tab_ml:
             "qu'il aura produit des résultats, sans changement de code."
         )
     else:
-        st.dataframe(df.toPandas())
+        st.dataframe(vers_pandas(df))
 
     st.subheader("Détection d'anomalies (Isolation Forest)")
     st.info(

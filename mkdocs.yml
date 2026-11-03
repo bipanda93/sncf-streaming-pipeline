@@ -1,0 +1,48 @@
+site_name: Pipeline SNCF temps réel
+site_description: Pipeline de streaming SNCF (Kafka, PySpark, Delta Lake, Airflow) de l'API au tableau de bord
+site_author: Bipanda Franck Ulrich
+repo_url: https://github.com/bipanda93/sncf-streaming-pipeline
+repo_name: bipanda93/sncf-streaming-pipeline
+site_url: https://bipanda93.github.io/sncf-streaming-pipeline/
+
+theme:
+  name: material
+  language: fr
+  palette:
+    scheme: slate
+    primary: custom
+    accent: amber
+  features:
+    - navigation.top
+    - search.highlight
+    - content.code.copy
+
+extra_css:
+  - stylesheets/extra.css
+
+markdown_extensions:
+  - tables
+  - admonition
+  - attr_list
+  - md_in_html
+  - toc:
+      permalink: true
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+
+nav:
+  - Accueil: index.md
+  - Contexte métier: 01_besoins_metier.md
+  - Architecture:
+      - Modèle de données: schema_donnees.md
+      - Décisions d'architecture: notes/decisions_architecture.md
+  - Incidents: incidents.md
+  - CI/CD: ci_cd.md
+  - Plus:
+      - Guide Terraform: notes/guide_commandes_terraform.md
+      - Politique de rétention: notes/politique_retention.md
+      - Exploitation: exploitation.md
+      - Journal de projet: notes/journal_projet.md
