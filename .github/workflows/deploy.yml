@@ -45,7 +45,7 @@ jobs:
         working-directory: infra/terraform
     steps:
       - name: Récupérer le code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Installer Terraform
         uses: hashicorp/setup-terraform@v3
