@@ -28,27 +28,33 @@ détecter les erreurs de syntaxe avant même d'interroger Azure.
 **Utilité** : calcule et affiche ce qui *serait* fait (créer/modifier/
 détruire) si on appliquait la configuration -- sans jamais rien changer
 réellement. **Toujours gratuit**, quel que soit le nombre de ressources
-simulées. C'est la commande principale utilisée dans ce projet jusqu'ici --
-tous les modules (Resource Group, réseau, Key Vault, ADLS Gen2, Event Hubs,
-Databricks) ont été validés uniquement en `plan`, jamais appliqués.
+simulées. Dans ce projet, chaque module (Resource Group, réseau, Key Vault,
+ADLS Gen2, Event Hubs, Databricks, AKS, monitoring) a d'abord été validé en
+`plan`, puis appliqué lors du déploiement réel du 10/09/2026.
 
 ### `terraform apply`
 **Utilité** : crée/modifie réellement les ressources dans Azure, selon le
 plan calculé. **Facturation immédiate** dès la création (Databricks et AKS
-en particulier). **Jamais exécutée dans ce projet à ce stade** -- décision
-volontaire, budget étudiant limité (voir
-notes/decisions_architecture.md).
+en particulier). **Exécutée le 10/09/2026** : premier déploiement réel,
+30 ressources créées (AKS, Databricks, Event Hubs, Storage/ADLS Gen2, Key
+Vault, VNet, Grafana, Monitor Workspace), après résolution de trois
+blocages (fournisseurs non enregistrés, SKU et version Grafana rejetés par
+l'API). Lancée uniquement depuis le poste local, le state étant local (voir
+notes/decisions_architecture.md, 2026-10-21, et notes/incidents_2026-09-10.md).
 
 ### `terraform destroy`
 **Utilité** : supprime toutes les ressources précédemment créées par
-`apply`. Stratégie retenue pour ce projet, si déploiement réel un jour :
-`apply` → démonstration/captures d'écran → `destroy` dans la même session,
-pour limiter l'exposition à quelques heures de facturation plutôt que des
-jours entiers si on oublie.
+`apply`. Stratégie retenue pour ce projet : `apply` → validation et
+captures d'écran → `destroy`, pour limiter la facturation. **Exécuté le
+14/09/2026** : 37 ressources détruites, juste après la validation de la
+chaîne sur Azure (Event Hubs, ADLS Gen2, Airflow sur AKS, monitoring). Le
+soft-delete du Key Vault redouté ne s'est pas produit (voir
+notes/incidents_2026-09-14.md), donc un nouvel `apply` n'est pas bloqué par
+une réservation de nom.
 
 ---
 
-## 2. Inspection (utiles après un `apply`, jamais encore utilisées ici)
+## 2. Inspection (utiles après un `apply`)
 
 ### `terraform show`
 Affiche l'état actuel des ressources réellement déployées (lecture du
@@ -75,7 +81,7 @@ Reformate automatiquement les fichiers `.tf` selon le style standard
 Sauvegarde le plan calculé dans un fichier, pour garantir que l'`apply`
 suivant exécute *exactement* ce qui a été vérifié (sans risque qu'un
 changement externe à Azure, survenu entre les deux commandes, modifie le
-résultat). Non utilisé ici puisqu'aucun `apply` n'a encore eu lieu.
+résultat). À adopter pour un prochain `apply` ; non utilisé lors du déploiement du 10/09.
 
 ### `terraform workspace`
 Permet de gérer plusieurs environnements (dev/prod) avec la même
@@ -92,6 +98,6 @@ taille.
 |---|---|---|
 | `terraform init` | ✅ | 1 fois |
 | `terraform validate` | ✅ | Avant chaque `plan` |
-| `terraform plan` | ✅ | À chaque nouveau module (7 fois à ce jour) |
-| `terraform apply` | ❌ | Jamais -- décision volontaire |
-| `terraform destroy` | ❌ | Jamais -- rien à détruire |
+| `terraform plan` | ✅ | À chaque nouveau module, avant chaque `apply` |
+| `terraform apply` | ✅ | Le 10/09/2026 : 30 ressources créées (déploiement réel) |
+| `terraform destroy` | ✅ | Le 14/09/2026 : 37 ressources détruites pour limiter les coûts |

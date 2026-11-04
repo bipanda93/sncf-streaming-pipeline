@@ -22,10 +22,14 @@ benchmarking de la Partie 1 du mémoire).
 **Contexte** : choix de l'outil CI/CD.
 **Alternative écartée** : Jenkins (utilisé sur un autre projet du portfolio,
 volontairement, pour diversifier les compétences démontrées).
-**Décision** : GitHub Actions pour SNCF.
+**Décision** : GitHub Actions pour SNCF, avec trois workflows dans
+`.github/workflows/` : `ci.yml` (8 contrôles obligatoires sur chaque pull
+request vers `main`), `deploy.yml` (plan Terraform manuel) et `docs.yml`
+(publication du site de documentation sur GitHub Pages).
 **Justification** : adoption 2026 mesurée à 33% contre 28% pour Jenkins en
-France ; le lint/test (`ci.yml`) est fonctionnel, le déploiement
-(`deploy.yml`) reste à finaliser.
+France. Le dépôt GitHub porte aussi la protection de `main` (ruleset),
+Dependabot et la notification Slack ; le détail et l'historique sont dans les
+entrées du 21/10 et du 03/11 plus bas.
 
 ### Apache Kafka officiel plutôt que Bitnami
 **Contexte** : choix de l'image Docker Kafka pour le développement local.
@@ -183,6 +187,8 @@ soutenance face à un jury connaissant le concept.
 ## Orchestration Airflow
 
 ### 4 DAGs séparés plutôt qu'un DAG unique
+**Mise à jour 03/11/2026** : le projet compte aujourd'hui 6 DAGs : ces 4 DAGs de traitement, le DAG utilitaire `pipeline_complet_manuel` et `gouvernance_rgpd` (rétention et purge, voir `notes/politique_retention.md`).
+
 **Contexte** : orchestration du pipeline complet (ingestion, transformation,
 historique, enrichissement).
 **Alternative écartée** : un DAG unique déclenchant tout le pipeline sur un
@@ -257,6 +263,14 @@ compromis budgétaire à faire sur ce choix précis.
 ## CI/CD Terraform
 
 ### Plan automatique, apply/destroy strictement manuels
+**Statut : remplacée le 21/10/2026.** Le plan automatique sur les pull
+requests et les jobs `apply`/`destroy` de `deploy.yml` ont été retirés tant
+que le state Terraform est local (voir « 2026-10-21 — Apply/destroy retirés
+de la CI »). Aujourd'hui `deploy.yml` ne propose qu'un plan manuel, et la
+validation automatique du code Terraform est faite par le job
+`terraform-validate` de `ci.yml`. Le texte ci-dessous est conservé comme
+historique de la décision du 19/08.
+
 **Contexte** : mise en place du pipeline CI/CD pour l'infrastructure
 Terraform, après une session ayant révélé des coûts réels et 6 erreurs
 corrigées lors d'un apply manuel (voir notes/incidents_2026-08-19.md).
@@ -356,9 +370,10 @@ découvert le 26/08 après un `no such table: dag`.
 **Correction proposée, non appliquée** : volume dédié
 (`./airflow_metadata:/opt/airflow/persistent_db`) +
 `AIRFLOW__DATABASE__SQL_ALCHEMY_CONN` pointant dessus.
-**Statut** : ouvert -- à appliquer avant la prochaine recréation complète
-du conteneur, sous peine de revivre la perte du compte admin et de
-l'historique des runs.
+**Statut** : traité le 08/09/2026 par un volume nommé Docker (`airflow_home`),
+voir « 2026-09-08 — Stratégie de persistance des volumes Docker » plus bas.
+La solution retenue diffère de la correction proposée ici (bind mount
+`airflow_metadata`).
 
 ---
 
@@ -589,6 +604,11 @@ soit des données factices, soit d'attendre. Choix : structure prête,
 contenu vide avec message explicite, activation automatique sans
 retouche de code une fois ces pipelines réellement lancés.
 
+**Mise à jour 03/11/2026** : l'onglet ML affiche désormais les résumés
+mensuels générés par Claude. L'Isolation Forest reste en attente d'un
+historique suffisant. Un onglet « Carte » a été ajouté (voir l'entrée du
+03/11 en fin de page).
+
 ## 2026-09-14 — Pools Airflow pour throttler des jobs Spark concurrents
 
 **Contexte** : `historique_mensuel` lance dynamiquement une tâche
@@ -704,3 +724,35 @@ services annexes, il faut environ 9 à 10 Go, d'où un serveur de 16 Go.
 
 **Limites** : aucun test ne couvre encore les transformations Spark
 Bronze, Silver, Gold ; le serveur et son coût restent à choisir.
+
+
+---
+
+## 2026-11-03 (soir) — Site de documentation, huitième contrôle, carte Streamlit, montées de version
+
+**Contexte** : la documentation du projet n'était lisible que dans le dépôt
+GitHub. Le tableau de bord ne montrait pas où se trouvent les perturbations.
+
+**Décisions** :
+- Site de documentation MkDocs (thème Material) publié sur GitHub Pages par
+  `docs.yml` à chaque fusion dans `main`. Les notes du dépôt sont reprises
+  telles quelles (lien symbolique `docs/notes`).
+- `docs-build` devient le huitième contrôle obligatoire de `main` : le site
+  est construit en mode strict, donc un lien cassé fait échouer la pull
+  request.
+- Onglet « Carte » du tableau de bord Streamlit : gares touchées par les
+  perturbations actives, localisées par jointure sur le code UIC avec le
+  référentiel SNCF « gares voyageurs » (2950 gares). 92 % des arrêts sont
+  retrouvés ; les cars et les gares étrangères n'y figurent pas. Les
+  perturbations « aucun service » n'ont pas d'arrêts détaillés : aucune
+  ligne n'est tracée.
+- `pandas` épinglé sous la version 3 : l'association pandas 3 et PySpark 4.1
+  casse `toPandas()` sur les colonnes de type timestamp.
+- Montées de version : les mises à jour mineures et les actions GitHub sont
+  fusionnées quand les 8 contrôles passent. Les versions majeures
+  d'`anthropic`, de `delta-spark` (qui doit rester aligné sur la version de
+  Spark) et d'`azurerm` sont traitées à part, car la CI n'exécute ni Spark,
+  ni Delta, ni le client Claude : un test local est nécessaire.
+
+**Limites** : la CI reste aveugle aux ruptures d'exécution de Spark, de
+Delta et de l'API Claude ; le serveur de mise en ligne reste à choisir.

@@ -37,19 +37,20 @@ Architecture medallion complète, avec une table de pont (bridge table) pour gé
 | Monitoring | Prometheus + Grafana (kube-prometheus-stack, local au cluster) |
 | Restitution | Power BI (architecture double : Fabric Direct Lake + Desktop Import) |
 | IA | Isolation Forest (détection d'anomalies), Claude API (enrichissement) |
-| CI/CD | GitHub Actions (7 contrôles : lint, tests unitaires, tests des DAGs, scan de secrets, validation Terraform et Compose, build Docker), Dependabot, contrôles obligatoires sur main |
+| CI/CD | GitHub Actions (8 contrôles : lint, tests unitaires, tests des DAGs, scan de secrets, validation Terraform et Compose, build Docker, build du site de documentation), Dependabot, contrôles obligatoires sur main |
 
 ## Intégration continue
 
-Chaque pull request vers `main` lance sept contrôles (`.github/workflows/ci.yml`), tous obligatoires pour fusionner (ruleset sur `main`, sans contournement possible) :
+Chaque pull request vers `main` lance huit contrôles (`.github/workflows/ci.yml`), tous obligatoires pour fusionner (ruleset sur `main`, sans contournement possible) :
 
-- **dag-tests** : les 6 DAGs Airflow se chargent sans erreur, un DAG par fichier, identifiants uniques (Airflow 3.3.1, comme l'image de production) ;
+- **dag-tests** : les 6 DAGs Airflow se chargent sans erreur, un DAG par fichier, identifiants uniques (Airflow 3.3.2, comme l'image de production) ;
 - **unit-tests** : tests unitaires du client SNCF (mode mock, erreurs HTTP, pagination) et du producteur Kafka (enveloppe, clé, flush), sans réseau ni broker ;
 - **lint** : analyse statique du code Python avec ruff ;
 - **secret-scan** : recherche de secrets dans les commits avec Gitleaks ;
 - **terraform-validate** : formatage et validation de la configuration Terraform, sans connexion à Azure ;
 - **compose-validate** : validation de `docker-compose.yml` ;
-- **docker-build** : construction de l'image Airflow et vérification de Java 17, PySpark, Delta et Airflow à l'intérieur.
+- **docker-build** : construction de l'image Airflow et vérification de Java 17, PySpark, Delta et Airflow à l'intérieur ;
+- **docs-build** : construction stricte du site de documentation (MkDocs), publié sur GitHub Pages après chaque fusion.
 
 Dependabot propose chaque semaine les mises à jour des dépendances Python, des actions GitHub, de l'image Docker et de Terraform.
 
