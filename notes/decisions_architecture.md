@@ -756,3 +756,49 @@ GitHub. Le tableau de bord ne montrait pas où se trouvent les perturbations.
 
 **Limites** : la CI reste aveugle aux ruptures d'exécution de Spark, de
 Delta et de l'API Claude ; le serveur de mise en ligne reste à choisir.
+
+
+---
+
+## 2026-11-04 — Le déploiement continu est la limite assumée du sujet
+
+**Contexte** : après la CI complète, la partie déploiement reste limitée à
+un plan Terraform manuel. Il fallait trancher entre automatiser le
+déploiement de l'infrastructure Azure (AKS, Databricks, Event Hubs) et
+arrêter le périmètre à la CI.
+
+**Décision** : le CD est la limite du sujet, pour une raison de coût. La
+chaîne a été déployée et validée une fois sur Azure (10/09/2026, 30
+ressources), puis détruite (14/09/2026). La CI reste sans secret ; `apply`
+et `destroy` se font en local. Pour aller plus loin, deux voies restent
+ouvertes et la décision n'est pas prise : continuer sur Azure (backend
+Terraform distant, déploiement automatique) ou déployer sur un serveur privé
+(Docker Compose, 16 Go, sans Databricks ni AKS). Le détail des deux voies
+est dans `docs/ci_cd.md`.
+
+**Justification** :
+- Les volumes sont faibles (environ 1 700 perturbations actives, pic de
+  6,8 Go de mémoire pour Spark) ; Databricks est conçu pour des volumes très
+  supérieurs, donc le laisser tourner serait surdimensionné.
+- Ces services sont facturés en continu sur un compte étudiant à crédit
+  limité.
+- Le state Terraform est local : un `apply` depuis GitHub perdrait le state.
+- L'Isolation Forest n'exige ni cloud ni production : il lui faut 50 à 100
+  exécutions accumulées, que produit Airflow sous Docker Compose (toutes
+  les 4 heures, environ 8 à 17 jours).
+
+**Ce qu'un CD complet apporterait** (détail et équivalents actuels dans
+`docs/ci_cd.md`) : déploiement à chaque fusion, backend Terraform distant,
+environnements dev et prod avec approbation, publication de l'image et mise
+à jour du cluster, tests après déploiement, retour arrière et détection de
+dérive, authentification OIDC sans secret, arrêt automatique pour limiter
+les coûts.
+
+**Alternatives écartées** : `apply` automatique sur merge ; infrastructure
+Azure laissée en fonctionnement continu.
+
+**Limites** : le tableau de bord montre les données du dernier lancement,
+pas un service permanent ; le coût réel de la période du 10 au 14 septembre
+reste à chiffrer à partir de l'analyse des coûts Azure ; aucun déploiement
+automatique n'existe encore, quelle que soit la voie retenue.
+
