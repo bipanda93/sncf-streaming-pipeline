@@ -46,26 +46,26 @@
 
 ---
 
-## PROCHAINES ÉTAPES (instantané du 12/08/2026, fin de session Gold)
+## AVANCEMENT (instantané du 12/08/2026, complété le 04/11/2026)
 
-> Instantané historique, conservé tel quel. Les points « À faire » ci-dessous ont été réalisés ensuite (voir les entrées datées plus bas) ; l'état à jour est dans la section « État au 3 novembre 2026 » en fin de journal.
+> Les deux listes ci-dessous datent de la fin de la session Gold (12/08). La seconde a été mise à jour avec l'état réel au 4 novembre ; le détail de chaque point est dans les entrées datées plus bas, et l'état d'ensemble dans la section « État au 3 novembre 2026 » en fin de journal.
 
-### Terminé
-- [x] Ingestion temps réel (SNCF API -> Kafka) + Bronze temps réel
-- [x] Ingestion historique (5 jeux régularité) + Bronze historique
-- [x] Silver temps réel (dédoublonnage) + Silver historique (typage, 5 jeux)
-- [x] Gold realtime_alerts (alertes actives, niveaux de sévérité)
-- [x] Gold punctuality_trends (tendances historiques unifiées, 5 sources)
-- [x] Gold disruption_context (jointure temporelle + géographique)
+### Terminé au 12/08
+- ✅ Ingestion temps réel (SNCF API -> Kafka) + Bronze temps réel
+- ✅ Ingestion historique (5 jeux régularité) + Bronze historique
+- ✅ Silver temps réel (dédoublonnage) + Silver historique (typage, 5 jeux)
+- ✅ Gold realtime_alerts (alertes actives, niveaux de sévérité)
+- ✅ Gold punctuality_trends (tendances historiques unifiées, 5 sources)
+- ✅ Gold disruption_context (jointure temporelle + géographique)
 
-### À faire (à la date du 12/08, tous réalisés depuis)
-- [ ] Enrichissement LLM (`src/enrichment/`) — résumés Claude API des perturbations, publication sur `sncf-llm`
-- [ ] Orchestration Airflow (`dags/`) — 3 DAGs encore en squelette
-- [ ] Power BI — connexion DirectQuery vers les 3 tables Gold
-- [ ] Monitoring (`monitoring/`) — Prometheus/Grafana ou Azure Monitor
-- [ ] Infrastructure Terraform (`infra/terraform/`) — tous les .tf encore vides
-- [ ] Migration Kafka local -> Event Hubs (déjà prévue dans le code, jamais testée en réel)
-- [ ] `deploy.yml` (CI/CD déploiement) — seul `ci.yml` (lint/test) est fonctionnel aujourd'hui
+### Prévu au 12/08, état au 04/11
+- ✅ Enrichissement LLM (`src/enrichment/`) : résumés Claude API des perturbations, DAG mensuel `enrichissement_llm_mensuel`, résumés affichés dans le tableau de bord
+- ✅ Orchestration Airflow (`dags/`) : 6 DAGs, validés sur Docker Compose et sur AKS
+- ✅ Power BI : architecture double Fabric (Direct Lake) et Desktop (Import), voir les entrées du 27/08 et du 01/09
+- ✅ Monitoring : Prometheus et Grafana, validés (voir l'entrée du 14/09) ; export des métriques dans `src/monitoring/`
+- ✅ Infrastructure Terraform (`infra/terraform/`) : 13 fichiers `.tf`, déploiement réel le 10/09 (30 ressources), destruction le 14/09
+- ✅ Migration Kafka local -> Event Hubs : test de bout en bout réussi le 11/09
+- ◐ CI/CD : `ci.yml` exige 8 contrôles sur chaque pull request ; `deploy.yml` se limite à un plan Terraform manuel (`apply` et `destroy` se font en local, le state étant local)
 
 ---
 
