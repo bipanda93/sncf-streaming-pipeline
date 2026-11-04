@@ -864,6 +864,60 @@ pytest, image Airflow 3.3.2). Les montées de version majeures d'`anthropic`,
 de `delta-spark` et d'`azurerm` sont traitées à part : la CI ne couvre ni
 Spark, ni Delta, ni le client Claude, donc un test local est nécessaire.
 
+## 2026-11-04 — Dependabot terminé, clé API expirée, décisions de déploiement
+
+**Dependabot** : neuf pull requests fusionnées sur dix (actions GitHub,
+`requests`, `python-dotenv`, `pytest`, image Airflow 3.3.2, `anthropic`
+2.3.0, `delta-spark` 4.4.1). La dixième, la montée de version majeure
+d'`azurerm` (4 vers 5), est fermée volontairement avec la consigne de
+l'ignorer : la CI ne vérifie que la syntaxe Terraform, et aucune
+infrastructure n'est déployée pour le moment. Les deux montées de version
+les plus risquées ont été testées pour de vrai, parce que la CI n'exécute ni
+Spark, ni Delta, ni le client Claude :
+- `anthropic` 2.3.0 : les appels utilisés par le client existent toujours,
+  et un appel réel renvoie bien un résumé en français ;
+- `delta-spark` 4.4.1 : le paquet accepte PySpark de 4.0.1 à 4.2.0, donc
+  4.1.0 est dans la plage ; la tâche Silver du DAG `silver_gold_temps_reel`
+  s'est terminée correctement avec cette version, dans l'image Airflow
+  reconstruite.
+
+**Incident : clé API Claude expirée.** L'appel de test échouait en erreur
+401 (`invalid x-api-key`) alors que le format de la clé était correct :
+la clé avait expiré. Elle a été remplacée dans `.env`. Deux leçons :
+un secret qui expire n'est signalé qu'au prochain lancement du DAG mensuel
+d'enrichissement, donc sans surveillance de l'expiration l'échec passe
+inaperçu ; et Docker Compose donne priorité à une variable déjà chargée
+dans le terminal sur le fichier `.env`, si bien que le conteneur n'a pas
+pris la nouvelle clé tant que le terminal gardait l'ancienne.
+
+**Fusionner ne suffit pas.** Après la fusion de la montée de `anthropic`,
+le conteneur Airflow utilisait encore l'ancienne version : le dépôt à jour
+et l'environnement qui tourne sont deux choses différentes. L'image Docker,
+comme l'environnement local, doit être reconstruite après chaque mise à
+jour de dépendances, et c'est la vérification des versions dans le
+conteneur qui le prouve. Les erreurs 502 de GitHub pendant deux fusions
+étaient passagères ; la fusion avait en fait eu lieu au premier essai.
+
+**Décisions de déploiement** (détail dans `decisions_architecture.md`,
+2026-11-04, et dans la page « Deux voies de déploiement ») : le déploiement
+continu est la limite assumée du sujet, pour une raison de coût ; deux voies
+restent ouvertes, continuer sur Azure ou déployer sur un serveur privé, et
+aucune n'est retenue. Le serveur privé ne peut pas porter AKS ni Databricks :
+Databricks n'a de toute façon pas servi à exécuter le pipeline (accès
+bloqué, décision du 14/09), et le code est déjà portable par variables
+d'environnement. L'Isolation Forest n'exige pas de production : il lui faut
+50 à 100 exécutions accumulées, que produit Airflow sous Docker Compose.
+
+**Documentation** : journal, décisions, guide Terraform et README remis à
+jour (états périmés corrigés : `apply` et `destroy` réellement exécutés les
+10 et 14 septembre, huit contrôles, six DAGs).
+
+Reste à faire : chiffrer le coût réel du 10 au 14 septembre à partir de
+l'analyse des coûts Azure, choisir la voie de déploiement, rédiger le premier
+jet du mémoire (fin novembre).
+
+---
+
 ## État au 3 novembre 2026
 
 Réalisé : ingestion temps réel et historique, Bronze/Silver/Gold,
