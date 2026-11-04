@@ -39,6 +39,7 @@ nav:
   - Architecture:
       - Modèle de données: schema_donnees.md
       - Décisions d'architecture: notes/decisions_architecture.md
+      - Deux voies de déploiement: voies_deploiement.md
   - Incidents: incidents.md
   - CI/CD: ci_cd.md
   - Plus:
