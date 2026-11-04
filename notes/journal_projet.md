@@ -35,18 +35,20 @@
 
 ---
 
-## SOURCE HISTORIQUE — EN COURS
+## SOURCE HISTORIQUE — VALIDATIONS
 
 | # | Test | Résultat |
 |---|---|---|
 | 12 | `curl -I` sur l'export CSV régularité TER (data.sncf.com) | ✅ HTTP 200, aucune authentification requise, quota 150 000 requêtes/jour |
 | 13 | `curl` schéma réel du CSV TER | ✅ 9 colonnes confirmées : `date;region;nombre_de_trains_programmes;...;taux_de_regularite;...` |
 | 14 | `RegularityClient` mode mock | ✅ CSV synthétique conforme au schéma réel |
-| 15 | `RegularityClient` mode réel — téléchargement complet | ⏳ En attente du résultat |
+| 15 | `RegularityClient` mode réel — téléchargement complet | ✅ Validé : les 5 jeux de régularité sont chargés en Bronze historique puis Silver (voir plus bas) |
 
 ---
 
-## PROCHAINES ÉTAPES (mise à jour 12/08/2026, fin de session Gold)
+## PROCHAINES ÉTAPES (instantané du 12/08/2026, fin de session Gold)
+
+> Instantané historique, conservé tel quel. Les points « À faire » ci-dessous ont été réalisés ensuite (voir les entrées datées plus bas) ; l'état à jour est dans la section « État au 3 novembre 2026 » en fin de journal.
 
 ### Terminé
 - [x] Ingestion temps réel (SNCF API -> Kafka) + Bronze temps réel
@@ -56,7 +58,7 @@
 - [x] Gold punctuality_trends (tendances historiques unifiées, 5 sources)
 - [x] Gold disruption_context (jointure temporelle + géographique)
 
-### À faire
+### À faire (à la date du 12/08, tous réalisés depuis)
 - [ ] Enrichissement LLM (`src/enrichment/`) — résumés Claude API des perturbations, publication sur `sncf-llm`
 - [ ] Orchestration Airflow (`dags/`) — 3 DAGs encore en squelette
 - [ ] Power BI — connexion DirectQuery vers les 3 tables Gold
@@ -268,9 +270,9 @@ Besoin identifié : pouvoir déclencher les 4 DAGs planifiés d'un coup, à la d
 
 Solution : DAG séparé (`pipeline_complet_manuel`), `schedule=None` -- ne se déclenche jamais automatiquement, uniquement via `airflow dags trigger`. Utilise `TriggerDagRunOperator` (déjà anticipé dans le document d'architecture d'origine du projet). Point de vigilance appliqué de façon préventive : `deferrable=False` forcé explicitement sur chaque tâche -- un bug documenté d'Airflow 3.x fait que `wait_for_completion=True` combiné à `deferrable=True` peut laisser une tâche bloquée indéfiniment en état "deferred", sans jamais échouer ni réussir. Découvert par recherche avant implémentation, jamais rencontré en pratique.
 
-### Restant
+### Restant (à la date de cette section ; réalisé depuis)
 
-`gouvernance_rgpd` (6e DAG prévu, rétention et purge des données personnelles) -- non commencé, nécessite une réflexion sur la politique de rétention avant d'être codé.
+`gouvernance_rgpd` (6e DAG, rétention et purge des données personnelles) n'était pas commencé à cette date et demandait une réflexion sur la politique de rétention. Il existe désormais : `dags/gouvernance_rgpd.py`, `src/governance/` et `notes/politique_retention.md`.
 
 **Mise à jour** : un secret réel (`ARM_CLIENT_SECRET` du Service Principal) a
 été committé par erreur peu après la rédaction de la section ci-dessus, à
@@ -842,3 +844,35 @@ Reste à faire : tests unitaires Spark sur les transformations
 Bronze → Silver → Gold, choix et mise en place du serveur, carte Streamlit
 des lignes, site de documentation, backend Terraform distant si la CI doit
 un jour déployer.
+
+
+## 2026-11-03 (soir) — Carte des gares, thème, huitième contrôle, Airflow 3.3.2
+
+Le tableau de bord Streamlit gagne un onglet « Carte » : les gares touchées
+par les perturbations actives, localisées par jointure sur le code UIC avec
+le référentiel SNCF « gares voyageurs » (2950 gares, 92 % des arrêts
+retrouvés), couleur selon le niveau d'alerte et infobulle au survol. Les
+cars et les gares étrangères n'y figurent pas. Le thème reprend celui du
+site de documentation. Correctif de `toPandas()` sur les timestamps
+(pandas 3 et PySpark 4 ne s'entendent pas) : pandas est épinglé sous la
+version 3.
+
+Le site de documentation (MkDocs Material) est en ligne sur GitHub Pages ;
+son build est le huitième contrôle obligatoire (`docs-build`). Sept pull
+requests Dependabot fusionnées (actions GitHub, requests, python-dotenv,
+pytest, image Airflow 3.3.2). Les montées de version majeures d'`anthropic`,
+de `delta-spark` et d'`azurerm` sont traitées à part : la CI ne couvre ni
+Spark, ni Delta, ni le client Claude, donc un test local est nécessaire.
+
+## État au 3 novembre 2026
+
+Réalisé : ingestion temps réel et historique, Bronze/Silver/Gold,
+enrichissement LLM, 6 DAGs Airflow (dont gouvernance RGPD), Power BI
+(Fabric et Desktop), monitoring Prometheus/Grafana, infrastructure
+Terraform et déploiement Azure validé puis détruit, 8 contrôles CI
+obligatoires, Dependabot, Slack, site de documentation, carte Streamlit.
+
+Reste à faire : mémoire (premier jet fin novembre), tests unitaires Spark
+sur les transformations Bronze → Silver → Gold, serveur de mise en ligne
+(16 Go, dernière étape), backend Terraform distant si la CI doit un jour
+déployer, modèle d'anomalies à entraîner quand l'historique suffira.
