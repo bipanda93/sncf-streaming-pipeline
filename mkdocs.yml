@@ -37,6 +37,7 @@ nav:
   - Accueil: index.md
   - Contexte métier: 01_besoins_metier.md
   - Architecture:
+      - Outils et flux: outils.md
       - Modèle de données: schema_donnees.md
       - Décisions d'architecture: notes/decisions_architecture.md
       - Deux voies de déploiement: voies_deploiement.md
