@@ -935,20 +935,21 @@ déployer, modèle d'anomalies à entraîner quand l'historique suffira.
 
 ## État au 6 novembre 2026
 
-**Refonte complète du rapport Power BI**, page par page : identité visuelle
-alignée sur le site, bande de KPI en page 1, tableau de détail par région en
-page 2, matrice unique région x effet avec priorité moyenne en page 3,
-ponctualité et écart des régions TER en page 4. Détail dans la page
-« Rapport Power BI » du site.
+**Refonte du rapport Power BI, en cours.** Identité visuelle alignée sur le
+site sur les 4 pages. Abouties : page 2 (tableau de détail par région et carte)
+et page 3 (matrice unique région x effet avec priorité moyenne, niveaux
+d'alerte). Page 1 et page 4 : finitions à faire. Détail, mesures DAX et liste
+« Reste à faire » dans la page « Rapport Power BI » du site.
 
-**Ce que la refonte a révélé.** `export_for_powerbi.py` supprime les lignes à
-région ou gare vide après l'éclatement des colonnes multi-valuées : les
-perturbations critiques sans région n'apparaissent donc pas dans les vues par
-région. L'historique de ponctualité contient d'anciens noms de régions
-(Alsace, Lorraine, Rhône-Alpes...) qui ne correspondent pas aux régions
-actuelles ; une table de correspondance reste à écrire.
+**Ce que la refonte a révélé.** Dans la page 3, aucune des 167 alertes
+critiques n'apparaît par région : `export_for_powerbi.py` supprime les lignes à
+région ou gare vide après l'éclatement des colonnes multi-valuées, ce qui
+l'explique probablement (hypothèse non encore vérifiée). L'historique de
+ponctualité contient d'anciens noms de régions (Alsace, Lorraine,
+Rhône-Alpes...) qui ne correspondent pas aux régions actuelles ; une table de
+correspondance reste à écrire.
 
 Reste à faire : décider du traitement des lignes sans région (ligne
 « Non localisée » ou calcul côté rapport), table de correspondance des
-anciennes régions, vérifier que les volumes du rapport correspondent au
-dernier export.
+anciennes régions, finitions des pages 1 et 4, vérifier que les volumes du
+rapport correspondent au dernier export.
