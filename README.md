@@ -12,7 +12,7 @@ Architecture data engineering cloud-native pour l'ingestion, le traitement et la
 
 ## Vue d'ensemble
 
-Ce projet ingère en continu les données de perturbations du réseau SNCF (API Navitia), les traite via une architecture medallion (Bronze/Silver/Gold), et les restitue dans un dashboard Power BI interactif a 4 pages et dans un tableau de bord Streamlit (santé des données, carte des gares touchées, résumés générés par Claude). Il combine streaming temps réel (Kafka) et historique batch (données de régularité 2013-2026) dans une même architecture.
+Ce projet ingère en continu les données de perturbations du réseau SNCF (API Navitia), les traite via une architecture medallion (Bronze/Silver/Gold), et les restitue dans un dashboard Power BI interactif à 4 pages et dans un tableau de bord Streamlit (santé des données, carte des gares touchées, résumés générés par Claude). Il combine streaming temps réel (Kafka) et historique batch (données de régularité 2013-2026) dans une même architecture.
 
 ## Chiffres clés
 
@@ -54,7 +54,7 @@ flowchart LR
 
 Les données arrivent de l'API SNCF (temps réel) et de l'open data (historique), passent par Kafka puis par les trois couches Delta Bronze, Silver et Gold. Le Gold alimente Power BI, Streamlit, l'Isolation Forest et les résumés Claude. Airflow orchestre l'ensemble et prévient Slack en cas d'échec. Le détail des outils est sur la page [Outils et flux](https://bipanda93.github.io/sncf-streaming-pipeline/outils/).
 
-Architecture medallion complète, avec une table de pont (bridge table) pour gérer les relations multi-valeurs (une perturbation touche souvent plusieurs régions et gares a la fois). Diagramme détaillé : docs/schema_donnees.md
+Architecture medallion complète, avec une table de pont (bridge table) pour gérer les relations multi-valeurs (une perturbation touche souvent plusieurs régions et gares à la fois). Diagramme détaillé : docs/schema_donnees.md
 
 ## Stack technique
 
@@ -124,7 +124,7 @@ Il montre les données du dernier lancement du pipeline, pas un service permanen
 
 - Corruption de checkpoint Kafka après arrêt brutal, diagnostiquée et résolue
 - Perte silencieuse de données via /tmp non persistant, corrigée
-- Conflits de transaction Delta Lake liés a la concurrence des DAGs
+- Conflits de transaction Delta Lake liés à la concurrence des DAGs
 - Audit qualité de données : détection d'un mélange de 3 granularités géographiques dans l'historique de ponctualité, quantification d'un risque de double comptage (~18% sur l'échantillon testé), corrigé par filtrage explicite
 - Incident de sécurité : exposition accidentelle d'un secret Azure dans un commit, révoqué immédiatement et documenté
 - Migration Kafka vers Azure Event Hubs : clé d'authentification en écriture confondue avec la clé en lecture seule (erreur TOPIC_AUTHORIZATION_FAILED), diagnostiquée et corrigée en séparant les deux usages dans la configuration

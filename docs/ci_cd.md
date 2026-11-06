@@ -21,7 +21,7 @@ Le déploiement Terraform (`deploy.yml`) se limite à un plan déclenché manuel
 
 ## Déploiement : limite assumée du sujet
 
-Le déploiement continu (CD) est la limite du périmètre de ce projet, pour une raison de coût : un CD complet exige une infrastructure en fonctionnement, facturée en continu sur un compte étudiant à crédit limité. La chaîne a donc été déployée et validée une fois sur Azure (10/09/2026, 30 ressources), puis détruite (14/09/2026).
+Le déploiement continu (CD) est la limite du périmètre de ce projet, pour une raison de coût : un CD complet exige une infrastructure en fonctionnement, facturée en continu sur un compte étudiant à crédit limité. La chaîne a donc été déployée et validée une fois sur Azure : 30 ressources créées le 10/09/2026, 37 détruites le 14/09/2026 (infrastructure complétée entre-temps).
 
 Le dimensionnement conforte ce choix : environ 1 700 perturbations actives et un pic mesuré de 6,8 Go de mémoire pour Spark, très en dessous des volumes pour lesquels Databricks et AKS sont conçus.
 
