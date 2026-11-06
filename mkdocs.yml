@@ -39,6 +39,7 @@ nav:
   - Architecture:
       - Outils et flux: outils.md
       - Modèle de données: schema_donnees.md
+      - Rapport Power BI: rapport_powerbi.md
       - Décisions d'architecture: notes/decisions_architecture.md
       - Deux voies de déploiement: voies_deploiement.md
   - Incidents: incidents.md

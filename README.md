@@ -101,11 +101,13 @@ Le déploiement Terraform (`deploy.yml`) se limite à un plan déclenché manuel
 
 ## Dashboard Power BI
 
-4 pages, style visuel cohérent (fond crème, accents dorés, texte marron) :
-1. Vue d'ensemble : KPI temps réel (perturbations actives, durée moyenne, taux historique)
-2. Analyse géographique : carte choroplèthe interactive de France, segment région vers gares
-3. Types de perturbations : répartition par niveau d'alerte et sévérité
-4. Historique et ponctualité : évolution temporelle, comparaison par type de transport
+4 pages, style visuel aligné sur le site de documentation (fond de nuit, panneaux sombres, accent doré) :
+1. Vue d'ensemble : KPI temps réel (perturbations actives, durée moyenne, régions touchées, moyenne journalière)
+2. Régions et gares : carte et tableau de détail par région (perturbations, gares touchées, moyennes par jour)
+3. Types de perturbations : matrice région x effet avec priorité moyenne, répartition par niveau d'alerte
+4. Ponctualité : KPI par type de transport, évolution par année, écart des régions TER à la moyenne, taux d'annulation
+
+Détail du modèle, des mesures et des pièges : page [Rapport Power BI](https://bipanda93.github.io/sncf-streaming-pipeline/rapport_powerbi/).
 
 Modélisation DAX avancée, notamment le pattern TREATAS pour filtrer entre tables sans relation physique directe (nécessaire car une perturbation peut toucher plusieurs régions/gares simultanément).
 
