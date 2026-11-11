@@ -26,3 +26,10 @@ def test_le_fichier_contient_un_dag(fichier):
 def test_les_dag_id_sont_uniques():
     ids = [d.dag_id for f in DAG_FILES for d in dags_du_fichier(f)]
     assert len(ids) == len(set(ids)) == 6
+
+@pytest.mark.parametrize("fichier", DAG_FILES, ids=lambda f: f.name)
+def test_les_dags_planifies_alertent_sur_echec(fichier):
+    if fichier.name == "pipeline_complet_manuel.py":
+        pytest.skip("DAG manuel : il ne fait que déclencher les autres")
+    for dag in dags_du_fichier(fichier):
+        assert dag.default_args.get("on_failure_callback") is not None

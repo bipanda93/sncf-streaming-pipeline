@@ -29,12 +29,15 @@ from datetime import datetime, timedelta
 from airflow import DAG
 from airflow.providers.standard.operators.bash import BashOperator
 
+from src.monitoring.alerte_slack import alerter_slack
+
 PROJECT_DIR = "/opt/airflow/project"
 
 default_args = {
     "owner": "franck",
     "retries": 1,
     "retry_delay": timedelta(minutes=10),
+    "on_failure_callback": alerter_slack,
 }
 
 with DAG(

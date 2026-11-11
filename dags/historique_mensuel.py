@@ -19,6 +19,8 @@ from datetime import datetime, timedelta
 from airflow import DAG
 from airflow.providers.standard.operators.bash import BashOperator
 
+from src.monitoring.alerte_slack import alerter_slack
+
 PROJECT_DIR = "/opt/airflow/project"
 DATASETS = ["ter", "intercites", "tgv_globale", "tgv_axes", "tgv_liaisons"]
 
@@ -26,6 +28,7 @@ default_args = {
     "owner": "franck",
     "retries": 1,
     "retry_delay": timedelta(minutes=10),
+    "on_failure_callback": alerter_slack,
 }
 
 with DAG(
