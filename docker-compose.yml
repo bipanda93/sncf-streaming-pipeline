@@ -48,6 +48,7 @@ services:
       PYTHONPATH: /opt/airflow/project
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL:-}
     volumes:
       - airflow_home:/opt/airflow
       - ivy_cache:/home/airflow/.ivy2.5.2
