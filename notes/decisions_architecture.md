@@ -802,3 +802,38 @@ pas un service permanent ; le coût réel de la période du 10 au 14 septembre
 reste à chiffrer à partir de l'analyse des coûts Azure ; aucun déploiement
 automatique n'existe encore, quelle que soit la voie retenue.
 
+
+## 2026-11-11 — Alerte Slack sur l'échec des DAGs Airflow
+
+**Contexte** : jusqu'ici, Slack ne recevait que le résultat de la CI
+(`notify-slack`). Un échec d'ingestion ou de transformation dans Airflow
+n'était visible que dans l'interface, et la documentation affirmait à tort
+qu'Airflow prévenait Slack.
+
+**Décisions** :
+- Les 5 DAGs planifiés ont un `on_failure_callback` dans `default_args`,
+  qui publie le DAG, la tâche, le numéro d'essai et un lien vers l'interface.
+  Le DAG `pipeline_complet_manuel` n'en a pas : il ne fait que déclencher
+  les autres.
+- La fonction est dans `src/monitoring/alerte_slack.py` et non dans
+  `dags/`, car `test_dags.py` exige exactement 6 fichiers de DAGs.
+- Le webhook est dans `SLACK_WEBHOOK_URL`, lu depuis `.env` (ignoré par Git)
+  et transmis au conteneur par `docker-compose.yml`. Un canal dédié, avec son
+  propre webhook, sépare les alertes d'exploitation de celles de la CI.
+- L'alerte n'est jamais bloquante : sans webhook ou si Slack est en panne,
+  la fonction journalise et laisse le pipeline continuer.
+- Un test vérifie que chaque DAG planifié a un callback d'échec ; quatre
+  tests unitaires couvrent le message, l'absence de webhook, l'envoi et la
+  panne de Slack.
+
+**Conséquence** : le message part après la dernière tentative
+(`retries` épuisés), pas à la première erreur.
+
+**Alternatives écartées** : réutiliser le webhook de la CI (alertes
+mélangées) ; mettre le callback dans un fichier de `dags/` (casse le test
+des 6 fichiers).
+
+**Limites** : seuls les échecs de tâches sont signalés. Un DAG qui ne se
+lance pas, des données qui n'arrivent plus ou un volume anormal ne
+déclenchent pas d'alerte. Sur un serveur, le webhook viendrait d'un
+gestionnaire de secrets plutôt que d'un fichier `.env`.
