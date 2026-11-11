@@ -953,3 +953,26 @@ Reste à faire : décider du traitement des lignes sans région (ligne
 « Non localisée » ou calcul côté rapport), table de correspondance des
 anciennes régions, finitions des pages 1 et 4, vérifier que les volumes du
 rapport correspondent au dernier export.
+
+## 2026-11-11 — Alertes Slack sur les DAGs Airflow
+
+Le mémoire m'a fait relire le schéma d'architecture : Slack n'avait été
+branché que sur la CI, alors que le README et la page « Outils et flux »
+laissaient croire qu'Airflow le prévenait aussi. J'ai ajouté une alerte sur
+l'échec des 5 DAGs planifiés (`src/monitoring/alerte_slack.py`), avec un
+canal Slack dédié. Détail dans `notes/decisions_architecture.md`.
+
+Vérifications : 19 tests unitaires (15 avant), 13 tests de DAGs passés et
+1 ignoré (DAG manuel), lint propre, aucun DAG en erreur d'import, message de
+test reçu dans le canal.
+
+**Presque-incident à la relecture.** En collant le même bloc `default_args`
+dans les cinq DAGs, j'ai écrasé les valeurs de `retries` et `retry_delay` de
+quatre d'entre eux (1 essai et 10 minutes devenus 2 essais et 2 minutes).
+Rien de tel n'a été fusionné : `git diff` l'a montré avant le commit. Leçon :
+relire chaque diff, surtout quand la même modification est répétée dans
+plusieurs fichiers.
+
+Reste à faire : provoquer un échec réel pour valider le message de bout en
+bout, aligner la version d'Airflow de la CI (3.3.1) sur celle de l'image
+(3.3.2), décider du sort de la mise à jour Airflow 3.4.0.

@@ -21,7 +21,7 @@ Ce projet ingère en continu les données de perturbations du réseau SNCF (API 
 - 21 814 lignes d'historique de régularité (2013-2026)
 - 6 DAGs Airflow, validés sur Docker Compose puis déployés sur Kubernetes (AKS)
 - 9 modules Terraform : déploiement réel sur Azure le 10/09/2026, puis destruction de 37 ressources le 14/09/2026 pour limiter les coûts
-- 8 contrôles CI obligatoires sur `main`, 15 tests unitaires hors DAGs
+- 8 contrôles CI obligatoires sur `main`, 19 tests unitaires hors DAGs
 
 ## Architecture
 
