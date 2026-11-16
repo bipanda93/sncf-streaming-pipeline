@@ -13,6 +13,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+import altair as alt
 import pandas as pd
 import pydeck as pdk
 import streamlit as st
@@ -25,6 +26,7 @@ from src.carte.affichage import COULEURS_NIVEAUX, preparer_stations
 from src.carte.geo import NIVEAUX_ORDRE, charger_gares
 from src.dashboard_theme import appliquer_theme
 from src.ingestion import config
+from src.monitoring.resultats_anomalies import MIN_SAMPLES_ISOLATION_FOREST
 
 
 def build_spark_session() -> SparkSession:
@@ -165,6 +167,68 @@ def vers_pandas(df):
     return df.select(*colonnes).toPandas()
 
 
+def preparer_metriques(metriques_pdf: pd.DataFrame) -> pd.DataFrame:
+    """Historique des métriques par table, trié par date d'exécution."""
+    m = metriques_pdf.copy()
+    m["executed_at"] = pd.to_datetime(m["executed_at"])
+    return m.sort_values("executed_at")
+
+
+def preparer_verdicts(verdicts_pdf: pd.DataFrame) -> pd.DataFrame:
+    """Un verdict par table et par exécution (le dernier enregistré si le détecteur a tourné deux fois)."""
+    v = verdicts_pdf.copy()
+    v["metrics_executed_at"] = pd.to_datetime(v["metrics_executed_at"])
+    # .eq(True) : les valeurs absentes (Isolation Forest inactif) comptent comme « pas anormal »
+    v["anormal"] = v["is_anomaly_stat"].eq(True) | v["is_anomaly_if"].eq(True)
+    return v.sort_values("detected_at").drop_duplicates(["table_name", "metrics_executed_at"], keep="last")
+
+
+def tableau_etat_anomalies(m: pd.DataFrame, v) -> pd.DataFrame:
+    """Une ligne par table surveillée : historique, niveau actif, dernier verdict."""
+    lignes = []
+    for nom, g in m.groupby("table_name"):
+        n_hist = len(g) - 1  # le dernier point est celui qu'on teste, comme dans anomaly_detector
+        ligne = {
+            "Table surveillée": nom,
+            "Points d'historique": n_hist,
+            "Niveau actif": "Isolation Forest" if n_hist >= MIN_SAMPLES_ISOLATION_FOREST else "Statistique seul",
+            "Dernier verdict": "—",
+            "Dernier score": None,
+        }
+        if v is not None:
+            vn = v[v["table_name"] == nom]
+            if not vn.empty:
+                dernier = vn.sort_values("metrics_executed_at").iloc[-1]
+                etat = "anormal" if dernier["anormal"] else "normal"
+                ligne["Dernier verdict"] = f"{etat} ({dernier['metrics_executed_at']:%d/%m %H:%M})"
+                ligne["Dernier score"] = dernier["if_score"]
+        lignes.append(ligne)
+    return pd.DataFrame(lignes)
+
+
+def marquer_anomalies(g: pd.DataFrame, v, nom: str) -> pd.DataFrame:
+    """Ajoute à l'historique d'une table une colonne « anormal » (faux si aucun verdict n'existe)."""
+    g = g.copy()
+    if v is not None:
+        vn = v[v["table_name"] == nom][["metrics_executed_at", "anormal"]]
+        g = g.merge(vn, left_on="executed_at", right_on="metrics_executed_at", how="left")
+    else:
+        g["anormal"] = False
+    g["anormal"] = g["anormal"].eq(True)
+    return g
+
+
+def courbe_metrique(g: pd.DataFrame, variable: str, titre: str):
+    """Courbe d'une métrique dans le temps, avec les exécutions anormales en rouge."""
+    base = alt.Chart(g).mark_line().encode(
+        x=alt.X("executed_at:T", title="Exécution"), y=alt.Y(f"{variable}:Q", title=titre)
+    )
+    marques = alt.Chart(g[g["anormal"]]).mark_point(color="red", filled=True, size=80).encode(
+        x="executed_at:T", y=f"{variable}:Q"
+    )
+    return base + marques
+
+
 @st.cache_data(ttl=300, show_spinner="Lecture des perturbations actives…")
 def charger_donnees_carte():
     """Arrêts impactés (Silver) et niveaux d'alerte (Gold), en pandas."""
@@ -298,7 +362,41 @@ with tab_ml:
         st.dataframe(vers_pandas(df))
 
     st.subheader("Détection d'anomalies (Isolation Forest)")
-    st.info(
-        "Modèle pas encore entraîné (historique encore insuffisant). "
-        "Cet onglet affichera les scores d'anomalie une fois disponible."
+    st.markdown(
+        "À chaque exécution de `silver_gold_temps_reel` (toutes les 4 heures), le nombre de lignes et le "
+        "taux de valeurs nulles de deux tables Gold sont comparés à leur historique. Des seuils statistiques "
+        f"s'appliquent dès 5 points, l'Isolation Forest à partir de {MIN_SAMPLES_ISOLATION_FOREST}. Il est "
+        "configuré pour signaler environ une exécution sur dix (réglage, pas mesure de gravité) ; sa "
+        "précision n'est pas mesurée, faute d'anomalies connues."
+    )
+
+    metriques, _ = load_delta_table(config.DELTA_GOLD_PIPELINE_METRICS_PATH)
+    verdicts, _ = load_delta_table(config.DELTA_GOLD_ANOMALY_RESULTS_PATH)
+
+    if metriques is None:
+        st.info("Pas encore de métriques : le DAG silver_gold_temps_reel n'a pas écrit de point.")
+    else:
+        m = preparer_metriques(vers_pandas(metriques))
+        v = preparer_verdicts(vers_pandas(verdicts)) if verdicts is not None else None
+
+        st.dataframe(
+            tableau_etat_anomalies(m, v),
+            use_container_width=True,
+            hide_index=True,
+            column_config={"Dernier score": st.column_config.NumberColumn(format="%.3f")},
+        )
+        if v is not None:
+            st.caption(f"{int(v['anormal'].sum())} exécution(s) signalée(s) sur {len(v)} verdicts enregistrés.")
+        else:
+            st.info("Pas encore de verdict enregistré : les marques d'anomalie apparaîtront après le prochain run.")
+
+        for nom, g in m.groupby("table_name"):
+            g = marquer_anomalies(g, v, nom)
+            st.markdown(f"**{nom}**")
+            st.altair_chart(courbe_metrique(g, "row_count", "Nombre de lignes"), use_container_width=True)
+            st.altair_chart(courbe_metrique(g, "null_rate", "Taux de valeurs nulles"), use_container_width=True)
+
+    st.caption(
+        "Les marques rouges n'existent que pour les exécutions postérieures à l'enregistrement des verdicts : "
+        "les verdicts passés n'ont pas été conservés."
     )

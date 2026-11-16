@@ -94,6 +94,9 @@ DELTA_GOLD_AUDIT_LOG_PATH = os.getenv("DELTA_GOLD_AUDIT_LOG_PATH", _delta_path("
 DELTA_GOLD_PIPELINE_METRICS_PATH = os.getenv(
     "DELTA_GOLD_PIPELINE_METRICS_PATH", _delta_path("gold", "pipeline_metrics")
 )
+DELTA_GOLD_ANOMALY_RESULTS_PATH = os.getenv(
+    "DELTA_GOLD_ANOMALY_RESULTS_PATH", _delta_path("gold", "anomaly_results")
+)
 
 
 def build_kafka_config() -> dict:
