@@ -5,5 +5,5 @@ pytest==9.2.0
 anthropic==2.3.0
 pyspark==4.1.0
 delta-spark==4.4.1
-streamlit==1.63.0
+streamlit==1.67.0
 pandas>=2.2,<3
