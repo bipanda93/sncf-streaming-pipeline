@@ -32,6 +32,7 @@ from pyspark.sql.functions import (
     from_json,
     row_number,
     to_timestamp,
+    to_utc_timestamp,
 )
 from pyspark.sql.types import (
     ArrayType,
@@ -52,6 +53,18 @@ logger = logging.getLogger(__name__)
 
 # Format des dates SNCF/Navitia observé en direct : "20260811T083332"
 SNCF_TIMESTAMP_FORMAT = "yyyyMMdd'T'HHmmss"
+
+# Les heures de l'API sont locales (France), sans fuseau : on les convertit en UTC.
+# Constaté sur Bronze : 0 mise à jour postérieure à l'appel en heure de Paris,
+# contre 17 % si on les lisait comme de l'UTC.
+SNCF_TIMEZONE = "Europe/Paris"
+
+
+def parse_sncf_timestamp(colonne):
+    """Heure locale SNCF (chaîne) vers horodatage UTC ; session Spark en UTC."""
+    horodatage = to_timestamp(colonne, SNCF_TIMESTAMP_FORMAT)
+    return to_utc_timestamp(horodatage, SNCF_TIMEZONE)
+
 
 # Schéma explicite du JSON raw_payload -- une seule passe de parsing
 # (from_json), reflète la structure réelle observée dans les données SNCF.
@@ -103,6 +116,7 @@ DISRUPTION_SCHEMA = StructType([
 def build_spark_session() -> SparkSession:
     builder = (
         SparkSession.builder.appName("sncf-silver-transform")
+        .config("spark.sql.session.timeZone", "UTC")
         .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
         .config("spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog")
     )
@@ -122,13 +136,13 @@ def run_silver_transform() -> None:
     flat_df = parsed_df.select(
         col("disruption.id").alias("disruption_id"),
         col("disruption.status").alias("status"),
-        to_timestamp(col("disruption.updated_at"), SNCF_TIMESTAMP_FORMAT).alias("updated_at"),
+        parse_sncf_timestamp(col("disruption.updated_at")).alias("updated_at"),
         col("disruption.cause").alias("cause"),
         col("disruption.severity.name").alias("severity_name"),
         col("disruption.severity.effect").alias("severity_effect"),
         col("disruption.messages")[0]["text"].alias("message_text"),
-        to_timestamp(col("disruption.application_periods")[0]["begin"], SNCF_TIMESTAMP_FORMAT).alias("period_begin"),
-        to_timestamp(col("disruption.application_periods")[0]["end"], SNCF_TIMESTAMP_FORMAT).alias("period_end"),
+        parse_sncf_timestamp(col("disruption.application_periods")[0]["begin"]).alias("period_begin"),
+        parse_sncf_timestamp(col("disruption.application_periods")[0]["end"]).alias("period_end"),
         col("disruption.impacted_objects").alias("impacted_objects"),
         col("disruption.contributor").alias("contributor"),
         col("source"),
