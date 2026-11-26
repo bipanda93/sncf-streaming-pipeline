@@ -30,6 +30,8 @@ from pyspark.sql.functions import (
     current_timestamp,
     desc,
     from_json,
+    get,
+    lit,
     row_number,
     to_timestamp,
     to_utc_timestamp,
@@ -123,26 +125,27 @@ def build_spark_session() -> SparkSession:
     return configure_spark_with_delta_pip(builder).getOrCreate()
 
 
-def run_silver_transform() -> None:
-    spark = build_spark_session()
-    spark.sparkContext.setLogLevel("WARN")
+def flatten_bronze(bronze_df):
+    """Parse raw_payload (JSON) et aplatit les champs utiles de la perturbation.
 
-    bronze_df = spark.read.format("delta").load(config.DELTA_BRONZE_PATH)
-
+    get() et non [0] : Spark 4 est en mode ANSI par défaut, un tableau vide
+    (messages ou application_periods) ferait échouer tout le job au lieu de
+    donner null.
+    """
     parsed_df = bronze_df.withColumn(
         "disruption", from_json(col("raw_payload"), DISRUPTION_SCHEMA)
     )
 
-    flat_df = parsed_df.select(
+    return parsed_df.select(
         col("disruption.id").alias("disruption_id"),
         col("disruption.status").alias("status"),
         parse_sncf_timestamp(col("disruption.updated_at")).alias("updated_at"),
         col("disruption.cause").alias("cause"),
         col("disruption.severity.name").alias("severity_name"),
         col("disruption.severity.effect").alias("severity_effect"),
-        col("disruption.messages")[0]["text"].alias("message_text"),
-        parse_sncf_timestamp(col("disruption.application_periods")[0]["begin"]).alias("period_begin"),
-        parse_sncf_timestamp(col("disruption.application_periods")[0]["end"]).alias("period_end"),
+        get(col("disruption.messages"), lit(0))["text"].alias("message_text"),
+        parse_sncf_timestamp(get(col("disruption.application_periods"), lit(0))["begin"]).alias("period_begin"),
+        parse_sncf_timestamp(get(col("disruption.application_periods"), lit(0))["end"]).alias("period_end"),
         col("disruption.impacted_objects").alias("impacted_objects"),
         col("disruption.contributor").alias("contributor"),
         col("source"),
@@ -151,19 +154,34 @@ def run_silver_transform() -> None:
         col("bronze_ingested_at"),
     )
 
-    # Reject zone : JSON non parsable ou id absent -- jamais ignoré en silence.
+
+def split_valid_reject(flat_df):
+    """Reject zone : JSON non parsable ou id absent -- jamais ignoré en silence."""
     reject_df = flat_df.filter(col("disruption_id").isNull())
     valid_df = flat_df.filter(col("disruption_id").isNotNull())
+    return valid_df, reject_df
 
-    # Dédoublonnage : une ligne par perturbation, la plus récente
-    # (updated_at, puis offset Kafka en cas d'égalité).
+
+def deduplicate_latest(valid_df):
+    """Une ligne par perturbation : la plus récente (updated_at, puis offset Kafka en cas d'égalité)."""
     window = Window.partitionBy("disruption_id").orderBy(desc("updated_at"), desc("offset"))
-    deduped_df = (
+    return (
         valid_df.withColumn("rn", row_number().over(window))
         .filter(col("rn") == 1)
         .drop("rn")
         .withColumn("silver_processed_at", current_timestamp())
     )
+
+
+def run_silver_transform() -> None:
+    spark = build_spark_session()
+    spark.sparkContext.setLogLevel("WARN")
+
+    bronze_df = spark.read.format("delta").load(config.DELTA_BRONZE_PATH)
+
+    flat_df = flatten_bronze(bronze_df)
+    valid_df, reject_df = split_valid_reject(flat_df)
+    deduped_df = deduplicate_latest(valid_df)
 
     bronze_count = bronze_df.count()
     deduped_count = deduped_df.count()

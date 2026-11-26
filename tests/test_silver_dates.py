@@ -4,22 +4,9 @@ import pytest
 pytest.importorskip("pyspark")
 pytest.importorskip("delta")
 
-from pyspark.sql import SparkSession
 from pyspark.sql.functions import col, date_format
 
 from src.streaming.silver_transform import parse_sncf_timestamp
-
-
-@pytest.fixture(scope="module")
-def spark():
-    session = (
-        SparkSession.builder.master("local[1]")
-        .appName("test-silver-dates")
-        .config("spark.sql.session.timeZone", "UTC")
-        .getOrCreate()
-    )
-    yield session
-    session.stop()
 
 
 def _en_utc(spark, texte):

@@ -41,8 +41,16 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Installer Java (nécessaire à PySpark)
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
       - name: Installer les dépendances des tests
-        run: pip install requests==2.32.3 python-dotenv==1.0.1 confluent-kafka==2.5.0 pytest==9.2.0
+        run: >
+          pip install requests==2.32.3 python-dotenv==1.0.1 confluent-kafka==2.5.0 pytest==9.2.0
+          pyspark==4.1.0 delta-spark==4.4.1 pandas pyarrow
 
       - name: Lancer les tests unitaires
         run: pytest tests/ --ignore=tests/test_dags.py -v
