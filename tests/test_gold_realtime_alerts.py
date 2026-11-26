@@ -4,8 +4,6 @@ import pytest
 pytest.importorskip("pyspark")
 pytest.importorskip("delta")
 
-from pyspark.sql.functions import col
-
 from src.streaming.gold_realtime_alerts import (
     _add_affected_stations,
     _add_alert_level,
